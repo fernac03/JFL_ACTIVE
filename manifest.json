@@ -1,0 +1,10 @@
+{
+  "domain": "jfl_active20",
+  "name": "JFL Active20 Ethernet",
+  "documentation": "https://www.home-assistant.io/integrations/jflActive20",
+  "requirements": ["bitarray"],
+  "codeowners": [],
+  "config_flow": true,
+  "iot_class": "local_push",
+  "loggers": ["jfl_active20"]
+}
