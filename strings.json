@@ -31,7 +31,8 @@
         "data": {
           "auto_bypass": "Auto Bypass on Arm",
           "code_arm_required": "Code Required for Arming",
-          "alt_night_mode": "Alternative Night Mode"
+          "alt_night_mode": "Alternative Night Mode",
+          "conf_code": "Alarm Code"
         }
       },
       "zone_select": {

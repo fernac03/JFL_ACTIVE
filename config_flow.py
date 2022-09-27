@@ -19,6 +19,7 @@ from .const import (
     CONF_ALT_NIGHT_MODE,
     CONF_AUTO_BYPASS,
     CONF_CODE_ARM_REQUIRED,
+    CONF_CODE_REQUIRED,
     CONF_RELAY_ADDR,
     CONF_RELAY_CHAN,
     CONF_ZONE_LOOP,
@@ -113,6 +114,7 @@ class AlarmDecoderOptionsFlowHandler(config_entries.OptionsFlow):
             OPTIONS_ZONES, DEFAULT_ZONE_OPTIONS
         )
         self.selected_zone = None
+        
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
@@ -156,6 +158,10 @@ class AlarmDecoderOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_CODE_ARM_REQUIRED,
                         default=self.arm_options[CONF_CODE_ARM_REQUIRED],
                     ): bool,
+                    vol.Required(
+                        CONF_CODE_REQUIRED,
+                        default=self.arm_options[CONF_CODE_REQUIRED],
+                    ): str,
                 },
             ),
         )

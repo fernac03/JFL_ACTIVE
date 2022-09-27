@@ -105,6 +105,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
 
     def _message_callback(self, message):
         """Handle received messages."""
+        _LOGGER.info(self._attr_state)
         if message.alarm_sounding or message.fire_alarm:
             self._attr_state = STATE_ALARM_TRIGGERED
         elif message.armed_away:
@@ -129,55 +130,51 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         #checksum = 0
         #for el in dados:
         #   checksum ^= ord(el)
+        #   _LOGGER.info("checksun %s",checksum.to_bytes(2,'big')) 
         checksum = 0
-        for n  in dados:
-            checksum ^= n
+        for n in dados:
+           checksum ^= n
+
         return checksum
     def alarm_disarm(self, code: str | None = None) -> None:
         """Send disarm command."""
         if not self._validate_code(code, STATE_ALARM_DISARMED):
             return
         if CONF_PARTITION:
-           message = b'\xB3\x36\x02\x00\x00\x00\x00'
+           message = b'\xb3\x36\x02\x00\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
            message = b'\xB3\x36\x02\x01\x00\x00\x00'
            check = slef.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
-           _LOGGER.info("particionada desarmando as duas particoes")
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
         else:
-           message = b'\xB3\x36\x02\x00\x00\x00\x00'
+           message = b'\xb3\x36\x02\x00\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
-           _LOGGER.info("sem particcao desarmando particao A")
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
 
     def alarm_arm_away(self, code: str | None = None) -> None:
         """Send arm away command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_AWAY):
             return
-        _LOGGER.info('particionada %s',CONF_PARTITION)
-        _LOGGER.info('modelo %s',CONF_MODELO)
-
 
         if CONF_PARTITION:
-           message = b'\xB3\x36\x01\x00\x00\x00\x00'
+           message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
-           message = b'\xB3\x36\x01\x01\x00\x00\x00'
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
+           message = b'\xb3\x36\x01\x01\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
-           _LOGGER.info("particionada armando as duas particoes away")
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
         else:
-           message = b'\xB3\x36\x01\x00\x00\x00\x00'
+           message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
-           _LOGGER.info("sem particao armando particao a %s" ,message)
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
+           self._client.put(message)
 
     def alarm_arm_home(self, code: str | None = None) -> None:
         """Send arm home command."""
@@ -185,18 +182,15 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
             return
         _LOGGER.info('particionada %s',CONF_PARTITION)
         if CONF_PARTITION:
-           message = b'\xB3\x36\x01\x01\x00\x00\x00'
+           message = b'\xb3\x36\x01\x01\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
-           _LOGGER.info("particao armando particao B stay")
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
         else:
-           message = b'\xB3\x36\x01\x00\x00\x00\x00'
+           message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
-           _LOGGER.info("sem particao armando particao a")
-
+           message += check.to_bytes(1,'big')
+           self._client.put(message)
 
 
     def alarm_arm_night(self, code: str | None = None) -> None:
@@ -205,19 +199,19 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
             return
         _LOGGER.info('particionada %s',CONF_PARTITION)
         if CONF_PARTITION:
-           message = b'\xB3\x36\x01\x00\x00\x00\x00'
+           message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
+           message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
-           message = b'\xB3\x36\x01\x01\x00\x00\x00'
+           message = b'\xb3\x36\x01\x01\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
         else:
-           message = b'\xB3\x36\x01\x00\x00\x00\x00'
+           message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
-           message += check.to_bytes(2,'big')
-           #self._client.put(bytes(message))
+           message += check.to_bytes(1,'big')
+           self._client.put(bytes(message))
 
 
     def alarm_toggle_chime(self, code=None):

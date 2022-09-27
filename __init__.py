@@ -2,8 +2,11 @@
 from datetime import timedelta
 import logging
 import socket
+import select
 import threading
 import time
+import fcntl, os
+import errno
 from bitarray import bitarray
 
 from queue import Queue
@@ -57,7 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     undo_listener = entry.add_update_listener(_update_listener)
 
     ad_connection = entry.data
-    
+
     def stop_alarmdecoder(event):
         """Handle the shutdown of JFL Active20."""
         if not hass.data.get(DOMAIN):
@@ -65,7 +68,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.debug("Shutting down JFL Active20")
         hass.data[DOMAIN][entry.entry_id][DATA_RESTART] = False
         _LOGGER.debug("Shutting down JFL Active20")
-
+        
     async def open_connection():
         """Open a connection to JFL Active20."""
         watcher = JFLWatcher(hass,ad_connection,queue1)
@@ -132,7 +135,7 @@ class JFLWatcher(threading.Thread):
 
     def run(self):
         """Open a connection to JFL Active20."""
-        _LOGGER.info("iniciando o sistema")
+        _LOGGER.info("Starting JFL Integration")
         self.armed_away = False
         self._attr_state = STATE_ALARM_DISARMED
         self.alarm_sounding = False
@@ -156,9 +159,10 @@ class JFLWatcher(threading.Thread):
            self.text = "Not Connected"
            dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-           s.bind((self.host, 8085))
+           s.bind((self.host, self.port))
            _LOGGER.info("socket binded to %s" %(self.port))
            s.listen()
+           #s.setblocking(False)
            _LOGGER.info("socket is listening")
            while True:  
              conn, addr = s.accept()
@@ -167,215 +171,232 @@ class JFLWatcher(threading.Thread):
                  self.text = "Connected"
                  t=time.time()
                  while True:
-                     
                      elapsed = 0
-                     data = conn.recv(35)
-                     if not data:
+                     if not queue1.empty():
+                        val = queue1.get()
+                        _LOGGER.info("dentro da conexao recebido do HA %s" %(val))
+                        sent = conn.send(val)
+                     conn.settimeout(2)
+                     try:
+                       data = conn.recv(35)
+                     except socket.timeout as e:
+                       err = e.args[0]
+                       # this next if/else is a bit redundant, but illustrates how the
+                       # timeout exception is setup
+                       if err == 'timed out':
+                         continue
+                       else:
+                         break
+                     except socket.error as e:
+                      # Something else happened, handle error, exit, etc.
+                      break
+                     else:
+                      if len(data) == 0:
                         _LOGGER.info("dentro da conexao nao recebi nada")
                         break
-                     else:
-                       _LOGGER.info("dentro da conexao recebido %s" %(data))
-                       _LOGGER.info("dentro da conexao recebido %s", chr(data[0]))
-                       if len(data) == 30 and '36'  in f'{data[0]:0>2X}':
-                          _LOGGER.info("pacote com 30 primeiro  %s", f'{data[0]:0>2X}')
-                          for i in range(1,9):
-                             if self.bitExtracted(data[1], 1, i) == 1:
-                                dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
-                                self.text = "Zona " + str(i) + " Aberta"
-                                dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                             else:
-                                dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, i)
+                      else:
+                        _LOGGER.info("dentro da conexao recebido %s" %(data))
+                        _LOGGER.info("dentro da conexao recebido %s", chr(data[0]))
+                        if len(data) == 30 and '36'  in f'{data[0]:0>2X}':
+                           _LOGGER.info("pacote com 30 primeiro  %s", f'{data[0]:0>2X}')
+                           for i in range(1,9):
+                              if self.bitExtracted(data[1], 1, i) == 1:
+                                 dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
+                                 self.text = "Zona " + str(i) + " Aberta"
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              else:
+                                 dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, i)
                              
-                             _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[1], 1, i))
-                             _LOGGER.info ("zona %s Habilitada %s (0-nao , 1 sim)", i ,self.bitExtracted(data[26], 1, i))
-                          for i in range(10,17):
-                             if self.bitExtracted(data[2], 1, i) == 1:
+                              _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[1], 1, i))
+                              _LOGGER.info ("zona %s Habilitada %s (0-nao , 1 sim)", i ,self.bitExtracted(data[26], 1, i))
+                           for i in range(10,17):
+                              if self.bitExtracted(data[2], 1, i) == 1:
                                 dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
                                 self.text = "Zona " + str(i) + " Aberta"
                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-
-                             else:
-                                dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, i)
-                             _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[2], 1, i))
-                             _LOGGER.info ("zona %s Habilitadas %s (0-nao , 1 sim)", i ,self.bitExtracted(data[27], 1, i))
-                          for i in range(18,21):
-                             if self.bitExtracted(data[3], 1, i) == 1:
-                                dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
-                                self.text = "Zona " + str(i) + " Aberta"
-                                dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-
-                             else:
+                              else:
                                 dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, i)
 
-                             _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[3], 1, i))
-                             _LOGGER.info ("zona %s Habilitada %s (0-nao , 1 sim)", i ,self.bitExtracted(data[28], 1, i))
+                              _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[2], 1, i))
+                              _LOGGER.info ("zona %s Habilitadas %s (0-nao , 1 sim)", i ,self.bitExtracted(data[27], 1, i))
+                           for i in range(18,21):
+                              if self.bitExtracted(data[3], 1, i) == 1:
+                                 dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
+                                 self.text = "Zona " + str(i) + " Aberta"
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              else:
+                                 dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, i)
 
-                          if self.bitExtracted(data[7], 1, 1) == 1:
-                             _LOGGER.info("Part A Armada ")
-                             self._attr_state = STATE_ALARM_ARMED_AWAY
-                             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                          else:
-                             _LOGGER.info("Part A Desarmada")
-                             self._attr_state = STATE_ALARM_DISARMED
-                             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                          if self.bitExtracted(data[7], 1, 2) == 1:
-                             _LOGGER.info("Part A Armada Stay")
-                             self._attr_state = STATE_ALARM_ARMED_HOME
-                             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                          else:
-                             _LOGGER.info("Part A Desarmada")
-                             self._attr_state = STATE_ALARM_DISARMED
-                             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                          if self.bitExtracted(data[7], 1, 3) == 1:
-                             _LOGGER.info("Part B Armada")
-                             self._attr_state = STATE_ALARM_ARMED_AWAY
-                             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                          else:
-                             _LOGGER.info("Part B Desarmada")
-                             self._attr_state = STATE_ALARM_DISARMED
-                             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                          if self.bitExtracted(data[7], 1, 4) == 1:
-                             _LOGGER.info("Part B Armada Stay")
-                             self._attr_state = STATE_ALARM_ARMED_STAY
-                             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                          else:
-                             _LOGGER.info("Part B Desarmada")
-                             self._attr_state = STATE_ALARM_DISARMED
-                             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                          if self.bitExtracted(data[7], 1, 5) == 1:
-                             _LOGGER.info("PGM 1 Acionada")
-                          else:
-                             _LOGGER.info("PGM 1 Off")
-                          if self.bitExtracted(data[7], 1, 6) == 1:
-                             _LOGGER.info("PGM 2 acionada")
-                          else:
-                             _LOGGER.info("PGM 2 off")
-                          if self.bitExtracted(data[7], 1, 7) == 1:
-                             _LOGGER.info("PGM 3 acionada")
-                          else:
-                             _LOGGER.info("PGM 3 off")
-                          if self.bitExtracted(data[7], 1, 8) == 1:
-                             _LOGGER.info("PGM 4 Acionada")
-                          else:
-                             _LOGGER.info("PGM 4 Off")
+                              _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[3], 1, i))
+                              _LOGGER.info ("zona %s Habilitada %s (0-nao , 1 sim)", i ,self.bitExtracted(data[28], 1, i))
+                           
+                           if self.CONF_PARTITION:
+                              if self.bitExtracted(data[7], 1, 2) == 1:
+                                 _LOGGER.info("Part A Armada Stay")
+                                 #self._attr_state = STATE_ALARM_ARMED_HOME
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              else:
+                                 _LOGGER.info("Part A Desarmada")
+                                 #self._attr_state = STATE_ALARM_DISARMED
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              if self.bitExtracted(data[7], 1, 3) == 1:
+                                 _LOGGER.info("Part B Armada")
+                                 #self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              else:
+                                 _LOGGER.info("Part B Desarmada")
+                                 #self._attr_state = STATE_ALARM_DISARMED
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              if self.bitExtracted(data[7], 1, 4) == 1:
+                                 _LOGGER.info("Part B Armada Stay")
+                                 #self._attr_state = STATE_ALARM_ARMED_STAY
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              else:
+                                 _LOGGER.info("Part B Desarmada")
+                                 #self._attr_state = STATE_ALARM_DISARMED
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self) 
+                           else:
+                               if self.bitExtracted(data[7], 1, 1) == 1:
+                                 _LOGGER.info("Central Armada ")
+                                 _LOGGER.info(STATE_ALARM_ARMED_AWAY)
+                                 self.armed_home = True
+                                 self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                               else:
+                                 _LOGGER.info("Central Desarmada")
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 self.armed_home = False
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)       
 
+                           if self.bitExtracted(data[7], 1, 5) == 1:
+                              _LOGGER.info("PGM 1 Acionada")
+                           else:
+                              _LOGGER.info("PGM 1 Off")
+                           if self.bitExtracted(data[7], 1, 6) == 1:
+                              _LOGGER.info("PGM 2 acionada")
+                           else:
+                              _LOGGER.info("PGM 2 off")
+                           if self.bitExtracted(data[7], 1, 7) == 1:
+                              _LOGGER.info("PGM 3 acionada")
+                           else:
+                              _LOGGER.info("PGM 3 off")
+                           if self.bitExtracted(data[7], 1, 8) == 1:
+                              _LOGGER.info("PGM 4 Acionada")
+                           else:
+                              _LOGGER.info("PGM 4 Off")
+                           _LOGGER.info("prob1  %s", f'{data[8]:0>2X}')
+                           _LOGGER.info("prob2  %s", f'{data[9]:0>2X}')
+                           _LOGGER.info("PERM1  %s", f'{data[10]:0>2X}')
+                           _LOGGER.info("Permisssao zonas  %s", f'{data[11]:0>2X}')
+                           if data[14] <= 0x96:
+                              self.text = "Bateria Baixa"
+                              self.battery_low = True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if data[14] >= 0xBE:
+                              self.text = "Bateria Normal"
+                              self.battery_low = True
+                              _LOGGER.info("texto %s", self.text)
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           _LOGGER.info("Nivel gprs  %s", f'{data[15]:0>2X}')
+                           _LOGGER.info("data hora  %s", f'{data[16]:0>2X}')
+                           _LOGGER.info("conta part a  %s", f'{data[22]:0>2X}')
+                           _LOGGER.info("conta part b  %s", f'{data[24]:0>2X}')
+                           _LOGGER.info("zonas Habilitadas  %s", f'{data[26]:0>2X}')
 
-
-                          _LOGGER.info("prob1  %s", f'{data[8]:0>2X}')
-                          _LOGGER.info("prob2  %s", f'{data[9]:0>2X}')
-                          _LOGGER.info("PERM1  %s", f'{data[10]:0>2X}')
-                          _LOGGER.info("Permisssao zonas  %s", f'{data[11]:0>2X}')
-                          if data[14] <= 0x96:
-                             self.text = "Bateria Baixa"
-                             self.battery_low = True
-                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                          if data[14] >= 0xBE:
-                             self.text = "Bateria Normal"
-                             self.battery_low = True
-                             _LOGGER.info("texto %s", self.text)
-                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                          _LOGGER.info("Nivel gprs  %s", f'{data[15]:0>2X}')
-                          _LOGGER.info("data hora  %s", f'{data[16]:0>2X}')
-                          _LOGGER.info("conta part a  %s", f'{data[22]:0>2X}')
-                          _LOGGER.info("conta part b  %s", f'{data[24]:0>2X}')
-                          _LOGGER.info("zonas Habilitadas  %s", f'{data[26]:0>2X}')
-                          
-
-                       if chr(data[0]) == '!':
-                          _LOGGER.info("Tipo Central  %s", f'{data[27]:0>2X}')
-                          if 'A0' in f'{data[27]:0>2X}':
-                             MODELO = 'Active-32 Duo'
-                          elif 'A1' in f'{data[27]:0>2X}':
-                             MODELO = 'Active 20 Ultra/GPRS'
-                          elif 'A2' in f'{data[27]:0>2X}':
-                             MODELO = 'Active 8 Ultra'
-                          elif 'A3' in f'{data[27]:0>2X}':
+                        if chr(data[0]) == '!':
+                           _LOGGER.info("Tipo Central  %s", f'{data[27]:0>2X}')
+                           if 'A0' in f'{data[27]:0>2X}':
+                              MODELO = 'Active-32 Duo'
+                           elif 'A1' in f'{data[27]:0>2X}':
+                              MODELO = 'Active 20 Ultra/GPRS'
+                           elif 'A2' in f'{data[27]:0>2X}':
+                              MODELO = 'Active 8 Ultra'
+                           elif 'A3' in f'{data[27]:0>2X}':
+                              MODELO = 'Active 20 Ethernet'
+                           elif '06' in f'{data[27]:0>2X}':
                              MODELO = 'Active 20 Ethernet'
-                          elif '06' in f'{data[27]:0>2X}':
-                            MODELO = 'Active 20 Ethernet'
-                          elif '05' in f'{data[27]:0>2X}':
-                             MODELO = 'Active 20 Ultra'
-                          elif '04' in f'{data[27]:0>2X}':
-                             MODELO = 'Active 20 GPRS'
-                          elif '00' in f'{data[27]:0>2X}':
-                             MODELO = 'Active 20 GPRS'
-                          conn.send('+'.encode('ascii'))
-                          self.CONF_MODELO = MODELO
-                          #self.schedule_update_ha_state()
-                          dispatcher_send(self.hass, CONF_MODELO, MODELO)    
-
-
-                       elif chr(data[0]) == '@':
-                          if not queue1.empty():
-                             val = queue1.get()
-                             _LOGGER.info("dentro da conexao recebido do HA %s" %(val))
-                             sent = conn.send(val)
-                          else:
-                             if time.time()-t>20:
-                                t=time.time()
-                                _LOGGER.info("Enviando pedido de status")
-                                conn.send(b'\xb3\x36\x18\x00\x00\x00\x00\x9d')
-                             else:
-                               _LOGGER.info("Enviando Keep alive")
-                               conn.send('@1'.encode('ascii'))
-
-                       elif chr(data[0]) == '$':
-                          evento = data[5:9].decode('ascii')
-                          self.alarm_event_occurred = evento
-                          _LOGGER.info("Evento  %s", evento)
-                          if self.bitExtracted(data[15],1,1) ==1:
-                            _LOGGER.info("Particao A Armada %s",self.bitExtracted(data[15], 1, 1))
-                          else:
-                            self._attr_state = STATE_ALARM_DISARMED
-                            _LOGGER.info("Particao A Desarmada %s",self.bitExtracted(data[15], 1, 1))
-                          if self.bitExtracted(data[15],1,2) ==1:
-                            _LOGGER.info("Particao B Armada %s",self.bitExtracted(data[15], 1, 2))
-                          else:
-                            self._attr_state = STATE_ALARM_DISARMED
-                            _LOGGER.info("Particao B Desarmada %s",self.bitExtracted(data[15], 1, 2))
-                          if self.bitExtracted(data[15],1,3) ==1:
-                            _LOGGER.info("Problema Detectado %s",self.bitExtracted(data[15], 1, 3))
-                          else:
-                            _LOGGER.info("Sistema OK %s",self.bitExtracted(data[15], 1, 3))
-                          if self.bitExtracted(data[15],1,4) ==1:
-                            _LOGGER.info("Sirene Principal Tocando %s",self.bitExtracted(data[15], 1, 4))
-                            self.alarm_sounding = True
-                          else:
-                            self.alarm_sounding = False
-                            _LOGGER.info("Sirene off %s",self.bitExtracted(data[15], 1, 4))
-                          if self.bitExtracted(data[15],1,5) ==1:
-                            _LOGGER.info("Sirene B Tocando %s",self.bitExtracted(data[15], 1, 5))
-                            self.alarm_sounding = True
-                          else:
-                            self.alarm_sounding = False
-                            _LOGGER.info("Sirene B off %s",self.bitExtracted(data[15], 1, 5))
-                          if self.bitExtracted(data[15],1,6) ==1:
-                            _LOGGER.info("Sistema Particionado %s",self.bitExtracted(data[15], 1, 6))
-                            self.CONF_PARTITION = True
-                            dispatcher_send(self.hass,CONF_PARTITION, True)    
-                          else:
-                            _LOGGER.info("Sistema sem Paticao %s",self.bitExtracted(data[15], 1, 6))
-                            self.CONF_PARTITION = True
-                            dispatcher_send(self.hass,CONF_PARTITION, True)
-
-                          dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                          if not queue1.empty():
-                             val = queue1.get()
-                             _LOGGER.info("dentro da conexao recebido do HA %s" %(val))
-                             sent = conn.send(val)
-                          else:
-                             conn.send('@1'.encode('ascii'))
+                           elif '05' in f'{data[27]:0>2X}':
+                              MODELO = 'Active 20 Ultra'
+                           elif '04' in f'{data[27]:0>2X}':
+                              MODELO = 'Active 20 GPRS'
+                           elif '00' in f'{data[27]:0>2X}':
+                              MODELO = 'Active 20 GPRS'
+                           conn.send('+'.encode('ascii'))
+                           self.CONF_MODELO = MODELO
+                           #self.schedule_update_ha_state()
+                           dispatcher_send(self.hass, CONF_MODELO, MODELO)    
+ 
+ 
+                        elif chr(data[0]) == '@':
+                              if time.time()-t>20:
+                                 t=time.time()
+                                 _LOGGER.info("Enviando pedido de status")
+                                 conn.send(b'\xb3\x36\x18\x00\x00\x00\x00\x9d')
+                              else:
+                                _LOGGER.info("Enviando Keep alive")
+                                conn.send('@1'.encode('ascii'))
+ 
+                        elif chr(data[0]) == '$':
+                           evento = data[5:9].decode('ascii')
+                           self.alarm_event_occurred = evento
+                           _LOGGER.info("Evento  %s", evento)
+                           if self.bitExtracted(data[15],1,6) ==1:
+                             _LOGGER.info("Sistema Particionado %s",self.bitExtracted(data[15], 1, 6))
+                             self.CONF_PARTITION = True
+                             dispatcher_send(self.hass,CONF_PARTITION, True)    
+                           else:
+                             _LOGGER.info("Sistema sem Paticao %s",self.bitExtracted(data[15], 1, 6))
+                             self.CONF_PARTITION = True
+                             dispatcher_send(self.hass,CONF_PARTITION, True)
+                           if self.CONF_PARTITION:
+                              if self.bitExtracted(data[15],1,1) ==1:
+                                 _LOGGER.info("Particai A Armada %s",self.bitExtracted(data[15], 1, 1))
+                                 self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 self.armed_away = True
+                              else:
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 self.armed_away = False
+                                 _LOGGER.info("Particao A Desarmada %s",self.bitExtracted(data[15], 1, 1))
+                              if self.bitExtracted(data[15],1,2) ==1:
+                                 _LOGGER.info("Particao B Armada %s",self.bitExtracted(data[15], 1, 2))
+                              else:
+                                 #self._attr_state = STATE_ALARM_DISARMED
+                                 _LOGGER.info("Particao B Desarmada %s",self.bitExtracted(data[15], 1, 2))
+                           else:
+                              if self.bitExtracted(data[15],1,1) ==1:
+                                 _LOGGER.info("Central Armada %s",self.bitExtracted(data[15], 1, 1))
+                                 self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 self.armed_away = True
+                              else:
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 self.armed_away = False
+                                 _LOGGER.info("Central Desarmada %s",self.bitExtracted(data[15], 1, 1))
                           
-                       else:
-                          if not queue1.empty():
-                             val = queue1.get()
-                             _LOGGER.info("dentro da conexao recebido do HA %s" %(val))
-                             sent = conn.send(val)
-                          else:
-                             _LOGGER.info("Enviando Keep alive")
-                             conn.send('@1'.encode('ascii'))
-                             self.armed_away = False
-
-                     dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-
-    
+                           if self.bitExtracted(data[15],1,3) ==1:
+                             _LOGGER.info("Problema Detectado %s",self.bitExtracted(data[15], 1, 3))
+                           else:
+                             _LOGGER.info("Sistema OK %s",self.bitExtracted(data[15], 1, 3))
+                           if self.bitExtracted(data[15],1,4) ==1:
+                             _LOGGER.info("Sirene Principal Tocando %s",self.bitExtracted(data[15], 1, 4))
+                             self.alarm_sounding = True
+                           else:
+                             self.alarm_sounding = False
+                             _LOGGER.info("Sirene off %s",self.bitExtracted(data[15], 1, 4))
+                           if self.bitExtracted(data[15],1,5) ==1:
+                             _LOGGER.info("Sirene B Tocando %s",self.bitExtracted(data[15], 1, 5))
+                             self.alarm_sounding = True
+                           else:
+                             self.alarm_sounding = False
+                             _LOGGER.info("Sirene B off %s",self.bitExtracted(data[15], 1, 5))
+                           
+ 
+                           dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           conn.send('@1'.encode('ascii'))
+                        else:
+                              _LOGGER.info("Enviando Keep alive")
+                              conn.send('@1'.encode('ascii'))
+                              self.armed_away = False
+ 
+                      dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+ 
+        
