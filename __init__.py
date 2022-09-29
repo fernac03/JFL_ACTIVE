@@ -7,6 +7,7 @@ import threading
 import time
 import fcntl, os
 import errno
+
 from bitarray import bitarray
 
 from queue import Queue
@@ -181,14 +182,11 @@ class JFLWatcher(threading.Thread):
                        data = conn.recv(35)
                      except socket.timeout as e:
                        err = e.args[0]
-                       # this next if/else is a bit redundant, but illustrates how the
-                       # timeout exception is setup
                        if err == 'timed out':
                          continue
                        else:
                          break
                      except socket.error as e:
-                      # Something else happened, handle error, exit, etc.
                       break
                      else:
                       if len(data) == 0:
@@ -258,9 +256,9 @@ class JFLWatcher(threading.Thread):
                            else:
                                if self.bitExtracted(data[7], 1, 1) == 1:
                                  _LOGGER.info("Central Armada ")
-                                 _LOGGER.info(STATE_ALARM_ARMED_AWAY)
+                                 _LOGGER.info(STATE_ALARM_ARMED_HOME)
                                  self.armed_home = True
-                                 self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 self._attr_state = STATE_ALARM_ARMED_HOME
                                  dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
                                else:
                                  _LOGGER.info("Central Desarmada")
@@ -339,6 +337,24 @@ class JFLWatcher(threading.Thread):
                         elif chr(data[0]) == '$':
                            evento = data[5:9].decode('ascii')
                            self.alarm_event_occurred = evento
+                           if evento == 3401 or evento ==3407 or evento ==3403 or evento ==3404 or evento ==3408 or evento==3409 or evento==3441:
+                              self.armed_home =True
+                              self._attr_state = STATE_ALARM_ARMED_HOME
+                           if evento == 1401 or evento ==1407 or evento ==1403 or evento==1409:
+                              self.armed_home =True
+                              self._attr_state = STATE_ALARM_DISARMED
+                           if evento == 1130 and self.armed_home == True:
+                              self.fire_alarm=True
+                           if evento == 3130:
+                              self.fire_alarm=False
+                           if evento == 1134 and self.armed_home == True:
+                              self.fire_alarm=True
+                           if evento == 3134:
+                              self.fire_alarm=False
+                           if evento == 1137 and self.armed_home == True:
+                              self.fire_alarm=True
+                           if evento == 3137:
+                              self.fire_alarm=False
                            _LOGGER.info("Evento  %s", evento)
                            if self.bitExtracted(data[15],1,6) ==1:
                              _LOGGER.info("Sistema Particionado %s",self.bitExtracted(data[15], 1, 6))
@@ -351,11 +367,11 @@ class JFLWatcher(threading.Thread):
                            if self.CONF_PARTITION:
                               if self.bitExtracted(data[15],1,1) ==1:
                                  _LOGGER.info("Particai A Armada %s",self.bitExtracted(data[15], 1, 1))
-                                 self._attr_state = STATE_ALARM_ARMED_AWAY
-                                 self.armed_away = True
+                                 self._attr_state = STATE_ALARM_ARMED_HOME
+                                 self.armed_home = True
                               else:
                                  self._attr_state = STATE_ALARM_DISARMED
-                                 self.armed_away = False
+                                 self.armed_home = False
                                  _LOGGER.info("Particao A Desarmada %s",self.bitExtracted(data[15], 1, 1))
                               if self.bitExtracted(data[15],1,2) ==1:
                                  _LOGGER.info("Particao B Armada %s",self.bitExtracted(data[15], 1, 2))
@@ -365,11 +381,11 @@ class JFLWatcher(threading.Thread):
                            else:
                               if self.bitExtracted(data[15],1,1) ==1:
                                  _LOGGER.info("Central Armada %s",self.bitExtracted(data[15], 1, 1))
-                                 self._attr_state = STATE_ALARM_ARMED_AWAY
-                                 self.armed_away = True
+                                 self._attr_state = STATE_ALARM_ARMED_HOME
+                                 self.armed_home = True
                               else:
                                  self._attr_state = STATE_ALARM_DISARMED
-                                 self.armed_away = False
+                                 self.armed_home = False
                                  _LOGGER.info("Central Desarmada %s",self.bitExtracted(data[15], 1, 1))
                           
                            if self.bitExtracted(data[15],1,3) ==1:
