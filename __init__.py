@@ -31,6 +31,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import dt as dt_util
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DATA_AD,
@@ -127,6 +131,12 @@ class JFLWatcher(threading.Thread):
         """Initialize JFL watcher thread."""
         super().__init__()
         self.daemon = True
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN,'0008dc0017ca' )},
+            manufacturer="JFL ",
+            name="JFL ACrive",
+        )
+        self._attr_unique_id = '0008dc0017ca'
         self.host = ad_connection[CONF_HOST]
         self.port = ad_connection[CONF_PORT]
         self.hass = hass
@@ -136,13 +146,14 @@ class JFLWatcher(threading.Thread):
 
     def run(self):
         """Open a connection to JFL Active20."""
-        _LOGGER.info("Starting JFL Integration")
+        _LOGGER.warn("Starting JFL Integration")
         self.armed_away = False
+        self.armed_night = False
         self._attr_state = STATE_ALARM_DISARMED
         self.alarm_sounding = False
         self.fire_alarm = False
         self.armed_home = False
-        self.arm_home = False
+        self.text = "Home Assistant"
         self.text = "Home Assistant"
         self.ac_power = True
         self.alarm_event_occurred = False
@@ -161,21 +172,18 @@ class JFLWatcher(threading.Thread):
            dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
            s.bind((self.host, self.port))
-           _LOGGER.info("socket binded to %s" %(self.port))
            s.listen()
            #s.setblocking(False)
-           _LOGGER.info("socket is listening")
            while True:  
              conn, addr = s.accept()
              with conn:
-                 _LOGGER.info("Connected by %s",addr)
+                 _LOGGER.warn("Connected by %s",addr)
                  self.text = "Connected"
                  t=time.time()
                  while True:
                      elapsed = 0
                      if not queue1.empty():
                         val = queue1.get()
-                        _LOGGER.info("dentro da conexao recebido do HA %s" %(val))
                         sent = conn.send(val)
                      conn.settimeout(2)
                      try:
@@ -190,13 +198,48 @@ class JFLWatcher(threading.Thread):
                       break
                      else:
                       if len(data) == 0:
-                        _LOGGER.info("dentro da conexao nao recebi nada")
                         break
                       else:
-                        _LOGGER.info("dentro da conexao recebido %s" %(data))
-                        _LOGGER.info("dentro da conexao recebido %s", chr(data[0]))
                         if len(data) == 30 and '36'  in f'{data[0]:0>2X}':
-                           _LOGGER.info("pacote com 30 primeiro  %s", f'{data[0]:0>2X}')
+                           if self.CONF_PARTITION:
+                              if self.bitExtracted(data[7], 1, 2) == 1:
+                                 _LOGGER.warn("com particao Part A Armada Stay")
+                                 self._attr_state = STATE_ALARM_ARMED_HOME
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              else:
+                                 _LOGGER.warn("com particao Part A Desarmada")
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              if self.bitExtracted(data[7], 1, 3) == 1:
+                                 _LOGGER.info("Part B Armada")
+                                 #self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              else:
+                                 _LOGGER.info("Part B Desarmada")
+                                 #self._attr_state = STATE_ALARM_DISARMED
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              if self.bitExtracted(data[7], 1, 4) == 1:
+                                 _LOGGER.info("Part B Armada")
+                                 #self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              else:
+                                 _LOGGER.info("Part B Desarmada")
+                                 #self._attr_state = STATE_ALARM_DISARMED
+                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                              
+                           else:
+                               if self.bitExtracted(data[7], 1, 1) == 1:
+                                 #_LOGGER.warn("Central Armada")
+                                 #_LOGGER.warn(STATE_ALARM_ARMED_HOME)
+                                 self.armed_home = True
+                                 self._attr_state = STATE_ALARM_ARMED_HOME
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                               else:
+                                 #_LOGGER.warn("Central Desarmada")
+                                 self.armed_home = False
+                                 self.armed_away = False
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)       
                            for i in range(1,9):
                               if self.bitExtracted(data[1], 1, i) == 1:
                                  dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
@@ -228,43 +271,7 @@ class JFLWatcher(threading.Thread):
                               _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[3], 1, i))
                               _LOGGER.info ("zona %s Habilitada %s (0-nao , 1 sim)", i ,self.bitExtracted(data[28], 1, i))
                            
-                           if self.CONF_PARTITION:
-                              if self.bitExtracted(data[7], 1, 2) == 1:
-                                 _LOGGER.info("Part A Armada Stay")
-                                 #self._attr_state = STATE_ALARM_ARMED_HOME
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              else:
-                                 _LOGGER.info("Part A Desarmada")
-                                 #self._attr_state = STATE_ALARM_DISARMED
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              if self.bitExtracted(data[7], 1, 3) == 1:
-                                 _LOGGER.info("Part B Armada")
-                                 #self._attr_state = STATE_ALARM_ARMED_AWAY
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              else:
-                                 _LOGGER.info("Part B Desarmada")
-                                 #self._attr_state = STATE_ALARM_DISARMED
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              if self.bitExtracted(data[7], 1, 4) == 1:
-                                 _LOGGER.info("Part B Armada Stay")
-                                 #self._attr_state = STATE_ALARM_ARMED_STAY
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              else:
-                                 _LOGGER.info("Part B Desarmada")
-                                 #self._attr_state = STATE_ALARM_DISARMED
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self) 
-                           else:
-                               if self.bitExtracted(data[7], 1, 1) == 1:
-                                 _LOGGER.info("Central Armada ")
-                                 _LOGGER.info(STATE_ALARM_ARMED_HOME)
-                                 self.armed_home = True
-                                 self._attr_state = STATE_ALARM_ARMED_HOME
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                               else:
-                                 _LOGGER.info("Central Desarmada")
-                                 self._attr_state = STATE_ALARM_DISARMED
-                                 self.armed_home = False
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)       
+                           
 
                            if self.bitExtracted(data[7], 1, 5) == 1:
                               _LOGGER.info("PGM 1 Acionada")
@@ -273,19 +280,19 @@ class JFLWatcher(threading.Thread):
                            if self.bitExtracted(data[7], 1, 6) == 1:
                               _LOGGER.info("PGM 2 acionada")
                            else:
-                              _LOGGER.info("PGM 2 off")
+                              _LOGGER.warn("PGM 2 off")
                            if self.bitExtracted(data[7], 1, 7) == 1:
-                              _LOGGER.info("PGM 3 acionada")
+                              _LOGGER.warn("PGM 3 acionada")
                            else:
-                              _LOGGER.info("PGM 3 off")
+                              _LOGGER.warn("PGM 3 off")
                            if self.bitExtracted(data[7], 1, 8) == 1:
-                              _LOGGER.info("PGM 4 Acionada")
+                              _LOGGER.warn("PGM 4 Acionada")
                            else:
                               _LOGGER.info("PGM 4 Off")
-                           _LOGGER.info("prob1  %s", f'{data[8]:0>2X}')
-                           _LOGGER.info("prob2  %s", f'{data[9]:0>2X}')
-                           _LOGGER.info("PERM1  %s", f'{data[10]:0>2X}')
-                           _LOGGER.info("Permisssao zonas  %s", f'{data[11]:0>2X}')
+                           #_LOGGER.warn("prob1  %s", f'{data[8]:0>2X}')
+                           #_LOGGER.warn("prob2  %s", f'{data[9]:0>2X}')
+                           #_LOGGER.warn("PERM1  %s", f'{data[10]:0>2X}')
+                           #_LOGGER.warn("Permisssao zonas  %s", f'{data[11]:0>2X}')
                            if data[14] <= 0x96:
                               self.text = "Bateria Baixa"
                               self.battery_low = True
@@ -293,16 +300,16 @@ class JFLWatcher(threading.Thread):
                            if data[14] >= 0xBE:
                               self.text = "Bateria Normal"
                               self.battery_low = True
-                              _LOGGER.info("texto %s", self.text)
+                              #_LOGGER.warn("texto %s", self.text)
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           _LOGGER.info("Nivel gprs  %s", f'{data[15]:0>2X}')
-                           _LOGGER.info("data hora  %s", f'{data[16]:0>2X}')
-                           _LOGGER.info("conta part a  %s", f'{data[22]:0>2X}')
-                           _LOGGER.info("conta part b  %s", f'{data[24]:0>2X}')
-                           _LOGGER.info("zonas Habilitadas  %s", f'{data[26]:0>2X}')
+                           #_LOGGER.warn("Nivel gprs  %s", f'{data[15]:0>2X}')
+                           #_LOGGER.warn("data hora  %s", f'{data[16]:0>2X}')
+                           #_LOGGER.warn("conta part a  %s", f'{data[22]:0>2X}')
+                           #_LOGGER.warn("conta part b  %s", f'{data[24]:0>2X}')
+                           #_LOGGER.warn("zonas Habilitadas  %s", f'{data[26]:0>2X}')
 
                         if chr(data[0]) == '!':
-                           _LOGGER.info("Tipo Central  %s", f'{data[27]:0>2X}')
+                           #_LOGGER.warn("Tipo Central  %s", f'{data[27]:0>2X}')
                            if 'A0' in f'{data[27]:0>2X}':
                               MODELO = 'Active-32 Duo'
                            elif 'A1' in f'{data[27]:0>2X}':
@@ -319,43 +326,51 @@ class JFLWatcher(threading.Thread):
                               MODELO = 'Active 20 GPRS'
                            elif '00' in f'{data[27]:0>2X}':
                               MODELO = 'Active 20 GPRS'
-                           conn.send('+'.encode('ascii'))
                            self.CONF_MODELO = MODELO
-                           #self.schedule_update_ha_state()
                            dispatcher_send(self.hass, CONF_MODELO, MODELO)    
- 
- 
+                           conn.send('+'.encode('ascii'))
                         elif chr(data[0]) == '@':
                               if time.time()-t>20:
                                  t=time.time()
-                                 _LOGGER.info("Enviando pedido de status")
                                  conn.send(b'\xb3\x36\x18\x00\x00\x00\x00\x9d')
-                              else:
-                                _LOGGER.info("Enviando Keep alive")
+                              else:                    
                                 conn.send('@1'.encode('ascii'))
- 
                         elif chr(data[0]) == '$':
                            evento = data[5:9].decode('ascii')
                            self.alarm_event_occurred = evento
                            if evento == 3401 or evento ==3407 or evento ==3403 or evento ==3404 or evento ==3408 or evento==3409 or evento==3441:
+                              self.armed_away =False
+                              self.armed_night =False
                               self.armed_home =True
                               self._attr_state = STATE_ALARM_ARMED_HOME
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                              _LOGGER.warn("Evento  %s", evento)
                            if evento == 1401 or evento ==1407 or evento ==1403 or evento==1409:
-                              self.armed_home =True
+                              _LOGGER.warn("Evento  %s", evento)
+                              self.armed_home =False
+                              self.armed_away =False
+                              self.armed_night =False
                               self._attr_state = STATE_ALARM_DISARMED
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == 1130 and self.armed_home == True:
                               self.fire_alarm=True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == 3130:
                               self.fire_alarm=False
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == 1134 and self.armed_home == True:
                               self.fire_alarm=True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == 3134:
                               self.fire_alarm=False
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == 1137 and self.armed_home == True:
                               self.fire_alarm=True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == 3137:
                               self.fire_alarm=False
-                           _LOGGER.info("Evento  %s", evento)
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           _LOGGER.warn("Evento  %s", evento)
                            if self.bitExtracted(data[15],1,6) ==1:
                              _LOGGER.info("Sistema Particionado %s",self.bitExtracted(data[15], 1, 6))
                              self.CONF_PARTITION = True
@@ -366,12 +381,12 @@ class JFLWatcher(threading.Thread):
                              dispatcher_send(self.hass,CONF_PARTITION, True)
                            if self.CONF_PARTITION:
                               if self.bitExtracted(data[15],1,1) ==1:
-                                 _LOGGER.info("Particai A Armada %s",self.bitExtracted(data[15], 1, 1))
-                                 self._attr_state = STATE_ALARM_ARMED_HOME
-                                 self.armed_home = True
+                                 _LOGGER.info("Particao A Armada %s",self.bitExtracted(data[15], 1, 1))
+                                # self._attr_state = STATE_ALARM_ARMED_HOME
+                                 #self.armed_home = True
                               else:
-                                 self._attr_state = STATE_ALARM_DISARMED
-                                 self.armed_home = False
+                                 #self._attr_state = STATE_ALARM_DISARMED
+                                 #self.armed_home = False
                                  _LOGGER.info("Particao A Desarmada %s",self.bitExtracted(data[15], 1, 1))
                               if self.bitExtracted(data[15],1,2) ==1:
                                  _LOGGER.info("Particao B Armada %s",self.bitExtracted(data[15], 1, 2))
@@ -380,14 +395,19 @@ class JFLWatcher(threading.Thread):
                                  _LOGGER.info("Particao B Desarmada %s",self.bitExtracted(data[15], 1, 2))
                            else:
                               if self.bitExtracted(data[15],1,1) ==1:
-                                 _LOGGER.info("Central Armada %s",self.bitExtracted(data[15], 1, 1))
-                                 self._attr_state = STATE_ALARM_ARMED_HOME
-                                 self.armed_home = True
+                                 #self._attr_state = STATE_ALARM_ARMED_HOME
+                                 ##self.armed_away = False
+                                 #self.armed_night = False
+                                 ##self.armed_home = True
+                                 #dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self) 
+                                 _LOGGER.warn("Evento  %s", evento)                                 
                               else:
-                                 self._attr_state = STATE_ALARM_DISARMED
-                                 self.armed_home = False
-                                 _LOGGER.info("Central Desarmada %s",self.bitExtracted(data[15], 1, 1))
-                          
+                                 #self._attr_state = STATE_ALARM_DISARMED
+                                 ##self.armed_home = False
+                                 #self.armed_away = False
+                                 #self.armed_night = False
+                                 #dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                                 _LOGGER.warn("Evento  %s", evento)
                            if self.bitExtracted(data[15],1,3) ==1:
                              _LOGGER.info("Problema Detectado %s",self.bitExtracted(data[15], 1, 3))
                            else:
@@ -395,21 +415,24 @@ class JFLWatcher(threading.Thread):
                            if self.bitExtracted(data[15],1,4) ==1:
                              _LOGGER.info("Sirene Principal Tocando %s",self.bitExtracted(data[15], 1, 4))
                              self.alarm_sounding = True
+                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            else:
                              self.alarm_sounding = False
                              _LOGGER.info("Sirene off %s",self.bitExtracted(data[15], 1, 4))
+                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if self.bitExtracted(data[15],1,5) ==1:
                              _LOGGER.info("Sirene B Tocando %s",self.bitExtracted(data[15], 1, 5))
                              self.alarm_sounding = True
+                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            else:
                              self.alarm_sounding = False
+                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                              _LOGGER.info("Sirene B off %s",self.bitExtracted(data[15], 1, 5))
                            
  
                            dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            conn.send('@1'.encode('ascii'))
                         else:
-                              _LOGGER.info("Enviando Keep alive")
                               conn.send('@1'.encode('ascii'))
                               self.armed_away = False
  

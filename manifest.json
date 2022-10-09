@@ -1,6 +1,6 @@
 {
   "domain": "jfl_active20",
-  "version": "0.0.11",
+  "version": "0.0.10",
   "name": "JFL Active20 Ethernet",
   "documentation": "https://github.com/fernac03/JFL_ACTIVE",
   "issue_tracker": "https://github.com/fernac03/JFL_ACTIVE/issues",
@@ -8,8 +8,6 @@
   "codeowners": [],
   "config_flow": true,
   "iot_class": "local_push",
-  "loggers": ["jfl_active20"]
-  "codeowners": [
-    "@fernac03"
-  ],
+  "loggers": ["jfl_active20"],
+  "codeowners": [ "@fernac03"]
 }

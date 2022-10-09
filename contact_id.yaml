@@ -1,0 +1,85 @@
+contact_id:
+  1100: Emergencia Médica
+  1110: Incêndio
+  1120: Pânico
+  1121: Coação
+  1122: Pânico Silencioso
+  1130: Disparo da zona
+  3130: Restauração do disparo da zona
+  1134: Alarme de porta aberta
+  3134: Restauração do alarme de porta aberta
+  1137: Alarme de zona tipo tamper
+  3137: Restauração do alrme de zona tipo tamper
+  1300: Problema da saida auxiliar
+  3300: Restauração do problema da saida auxiliar
+  1301: Falta de AC
+  3301: Restauração da falta de AC
+  1302: Problema da bateria da central
+  3302: Restauração do problema da bateria da central
+  1306: Alteração de programação
+  1311: Bateria morta
+  1321: Problema de sirene
+  3321: Restauração do problema de sirene
+  1322: Problema de supervisão de sirene Bus
+  3322: Restauração da supervisão da sirene Bus
+  1330: Problema de teclado
+  3330: Restauração do problema de teclado
+  1333: Problema da supervisão PGM Bus
+  3333: Restauração da supervisão PGM Bus
+  1338: Problema de bateria fraca de controle remoto
+  3338: Restauração de bateria fraca de controle remoto
+  1342: Problema de AC do teclado sem fio
+  3342: Restauração de AC do teclado sem fio
+  1345: Problema de bateria fraca do teclado sem fio
+  3345: Restauração de bateria fraca do teclado sem fio
+  1351: Problema de linha telefônica
+  3351: Restauração do problema de linha telefônica
+  1360: Problema de GPRS
+  3360: Restauração do problema de GPRS
+  1361: Problema de Ethernet
+  3361: Restauração do problema Ethernet
+  1362: Problema de SMS
+  3362: Restauração do problema de SMS
+  1363: Problema de módulo de celular
+  3363: Restauração do problema de módulo de celular
+  1364: Problema de SIM card
+  3364: Restauração do problema de SIM card
+  1366: Problema de módulo de Ethernet
+  3366: Retauração do problema de módulo de Ethernet
+  1369: Problema cabo de rede
+  3369: Restauração do cabo de rede
+  1370: Curto de zona
+  3370: Restauração do curto de zona
+  1381: Problema de supervisão do sensor
+  3381: Restauração de supervisão do sensor
+  1383: Problema de tamper do sensor
+  3383: Restauração do problema de tamper do sensor
+  1384: Problema de bateria fraca dos sensores sem fio
+  3384: Restauração de bateria fraca dos sensores sem fio
+  1391: Problema de supervisão do dispositivo de pânico
+  3391: Restauração de supervisão do dispositivo de pânico
+  1410: Acesso remoto a programação por computador
+  1421: Acesso negado (errou senha 5 vezes)
+  1422: PGM acionada pelo usuário
+  3422: PGM desacionada pelo usuário
+  1429: Início de ronda
+  1430: Fim de ronda
+  1570: Zona inibida(By pass)
+  1573: Zona autoanulada
+  1602: Teste periódico
+  1611: Ronda OK
+  1612: Falhou ronda
+  1627: Entrou na programação
+  1628: Saiu da programação
+  3401: Arme
+  1401: Desarme
+  3403: Autoarme por horário programado
+  1403: Auto-desarme por horário programado
+  3404: Autoarme por não movimento
+  3407: Arme remoto
+  1407: Desarme remoto
+  3408: Arme rápido
+  3409: Arme por controle remoto ou entrada LIGA
+  1409: Desarme por controle remoto ou entrada LIGA
+  3441: Arme STAY
+  3464: Auto arme adiado

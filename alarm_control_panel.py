@@ -26,6 +26,7 @@ from .const import (
     CONF_ALT_NIGHT_MODE,
     CONF_AUTO_BYPASS,
     CONF_PARTITION,
+    CONF_CODE_REQUIRED,
     CONF_CODE_ARM_REQUIRED,
     DATA_AD,
     DEFAULT_ARM_OPTIONS,
@@ -53,6 +54,7 @@ async def async_setup_entry(
         client=client,
         auto_bypass=arm_options[CONF_AUTO_BYPASS],
         code_arm_required=arm_options[CONF_CODE_ARM_REQUIRED],
+        code_required=arm_options[CONF_CODE_REQUIRED],
         alt_night_mode=arm_options[CONF_ALT_NIGHT_MODE],
     )
     async_add_entities([entity])
@@ -87,10 +89,10 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         | AlarmControlPanelEntityFeature.ARM_NIGHT
     )
 
-    def __init__(self, client, auto_bypass, code_arm_required, alt_night_mode):
+    def __init__(self, client, auto_bypass, code_arm_required, alt_night_mode,code_required):
         """Initialize the alarm panel."""
         self._client = client
-        self._code = "0839"
+        self._code = code_required
         self._auto_bypass = auto_bypass
         self._attr_code_arm_required = code_arm_required
         self._alt_night_mode = alt_night_mode
@@ -105,13 +107,19 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
 
     def _message_callback(self, message):
         """Handle received messages."""
-        _LOGGER.info(self._attr_state)
-        if message.alarm_sounding or message.fire_alarm:
-            self._attr_state = STATE_ALARM_TRIGGERED
-        elif message.armed_away:
-            self._attr_state = STATE_ALARM_ARMED_AWAY
-        else:
-            self._attr_state = STATE_ALARM_DISARMED
+        #_LOGGER.warning("estado  %s", self._attr_state)
+        #_LOGGER.warning("mensagem %s", message)
+        
+        #if message.alarm_sounding or message.fire_alarm:
+        #   self._attr_state = STATE_ALARM_TRIGGERED
+        #lif message.armed_away:
+        #   self._attr_state = STATE_ALARM_ARMED_AWAY
+        #lif message.armed_home:
+        #   self._attr_state = STATE_ALARM_ARMED_HOME
+        #lif message.armed_night:
+        #   self._attr_state = STATE_ALARM_ARMED_NIGHT
+        #lse:
+        #   self._attr_state = STATE_ALARM_DISARMED
 
         self._attr_extra_state_attributes = {
             "ac_power": message.ac_power,
@@ -127,10 +135,6 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         }
         self.schedule_update_ha_state()
     def checksum(self,dados):
-        #checksum = 0
-        #for el in dados:
-        #   checksum ^= ord(el)
-        #   _LOGGER.info("checksun %s",checksum.to_bytes(2,'big')) 
         checksum = 0
         for n in dados:
            checksum ^= n
@@ -152,6 +156,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         else:
            message = b'\xb3\x36\x02\x00\x00\x00\x00'
            check = self.checksum(message)
+           self._attr_state = STATE_ALARM_DISARMED
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
@@ -172,6 +177,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         else:
            message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
+           self._attr_state = STATE_ALARM_ARMED_AWAY
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
            self._client.put(message)
@@ -180,7 +186,6 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send arm home command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
             return
-        _LOGGER.info('particionada %s',CONF_PARTITION)
         if CONF_PARTITION:
            message = b'\xb3\x36\x01\x01\x00\x00\x00'
            check = self.checksum(message)
@@ -189,6 +194,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         else:
            message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
+           self._attr_state = STATE_ALARM_ARMED_HOME
            message += check.to_bytes(1,'big')
            self._client.put(message)
 
@@ -197,7 +203,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send arm night command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
             return
-        _LOGGER.info('particionada %s',CONF_PARTITION)
+        
         if CONF_PARTITION:
            message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
@@ -210,6 +216,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         else:
            message = b'\xb3\x36\x01\x00\x00\x00\x00'
            check = self.checksum(message)
+           self._attr_state = STATE_ALARM_ARMED_NIGHT
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
