@@ -107,19 +107,20 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
 
     def _message_callback(self, message):
         """Handle received messages."""
-        #_LOGGER.warning("estado  %s", self._attr_state)
-        #_LOGGER.warning("mensagem %s", message)
-        
-        #if message.alarm_sounding or message.fire_alarm:
-        #   self._attr_state = STATE_ALARM_TRIGGERED
-        #lif message.armed_away:
-        #   self._attr_state = STATE_ALARM_ARMED_AWAY
-        #lif message.armed_home:
-        #   self._attr_state = STATE_ALARM_ARMED_HOME
-        #lif message.armed_night:
-        #   self._attr_state = STATE_ALARM_ARMED_NIGHT
-        #lse:
-        #   self._attr_state = STATE_ALARM_DISARMED
+        if message.alarm_sounding or message.fire_alarm:
+           self._attr_state = STATE_ALARM_TRIGGERED
+        elif message.armed_away:
+           self._attr_state = STATE_ALARM_ARMED_AWAY
+           _LOGGER.warning("mensagem armed_AWAY")
+        elif message.armed_home:
+           self._attr_state = STATE_ALARM_ARMED_HOME
+           _LOGGER.warning("mensagem armed_home")
+        elif message.armed_night:
+           self._attr_state = STATE_ALARM_ARMED_NIGHT
+           _LOGGER.warning("mensagem armed_night")
+        else:
+           self._attr_state = STATE_ALARM_DISARMED
+           _LOGGER.warning("mensagem disarmed")
 
         self._attr_extra_state_attributes = {
             "ac_power": message.ac_power,

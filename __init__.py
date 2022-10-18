@@ -14,6 +14,7 @@ from queue import Queue
 from alarmdecoder.util import NoDeviceError
 
 from homeassistant.config_entries import ConfigEntry
+
 from homeassistant.const import (
     CONF_HOST,
     CONF_PORT,
@@ -28,6 +29,7 @@ from homeassistant.const import (
 )
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import dt as dt_util
@@ -140,13 +142,6 @@ class JFLWatcher(threading.Thread):
         self.host = ad_connection[CONF_HOST]
         self.port = ad_connection[CONF_PORT]
         self.hass = hass
-
-    def bitExtracted(self, number, k, p):
-        return ( ((1 << k) - 1)  &  (number >> (p-1) ) );
-
-    def run(self):
-        """Open a connection to JFL Active20."""
-        _LOGGER.warn("Starting JFL Integration")
         self.armed_away = False
         self.armed_night = False
         self._attr_state = STATE_ALARM_DISARMED
@@ -166,7 +161,15 @@ class JFLWatcher(threading.Thread):
         self.programming_mode = False
         self.ready = True
         self.zone_bypassed = False
+     
+    def bitExtracted(self, number, k, p):
+        return ( ((1 << k) - 1)  &  (number >> (p-1) ) );
+
+    def run(self):
+        """Open a connection to JFL Active20."""
+        _LOGGER.warn("Starting JFL Integration")
         device = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self) 
         with device as s:
            self.text = "Not Connected"
            dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
@@ -205,11 +208,11 @@ class JFLWatcher(threading.Thread):
                               if self.bitExtracted(data[7], 1, 2) == 1:
                                  _LOGGER.warn("com particao Part A Armada Stay")
                                  self._attr_state = STATE_ALARM_ARMED_HOME
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)
                               else:
                                  _LOGGER.warn("com particao Part A Desarmada")
                                  self._attr_state = STATE_ALARM_DISARMED
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
                               if self.bitExtracted(data[7], 1, 3) == 1:
                                  _LOGGER.info("Part B Armada")
                                  #self._attr_state = STATE_ALARM_ARMED_AWAY
@@ -226,7 +229,6 @@ class JFLWatcher(threading.Thread):
                                  _LOGGER.info("Part B Desarmada")
                                  #self._attr_state = STATE_ALARM_DISARMED
                                  #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              
                            else:
                                if self.bitExtracted(data[7], 1, 1) == 1:
                                  #_LOGGER.warn("Central Armada")
@@ -280,13 +282,13 @@ class JFLWatcher(threading.Thread):
                            if self.bitExtracted(data[7], 1, 6) == 1:
                               _LOGGER.info("PGM 2 acionada")
                            else:
-                              _LOGGER.warn("PGM 2 off")
+                              _LOGGER.info("PGM 2 off")
                            if self.bitExtracted(data[7], 1, 7) == 1:
-                              _LOGGER.warn("PGM 3 acionada")
+                              _LOGGER.info("PGM 3 acionada")
                            else:
-                              _LOGGER.warn("PGM 3 off")
+                              _LOGGER.info("PGM 3 off")
                            if self.bitExtracted(data[7], 1, 8) == 1:
-                              _LOGGER.warn("PGM 4 Acionada")
+                              _LOGGER.info("PGM 4 Acionada")
                            else:
                               _LOGGER.info("PGM 4 Off")
                            #_LOGGER.warn("prob1  %s", f'{data[8]:0>2X}')
@@ -338,6 +340,7 @@ class JFLWatcher(threading.Thread):
                         elif chr(data[0]) == '$':
                            evento = data[5:9].decode('ascii')
                            self.alarm_event_occurred = evento
+                           _LOGGER.warn("Evento  %s", evento)
                            if evento == 3401 or evento ==3407 or evento ==3403 or evento ==3404 or evento ==3408 or evento==3409 or evento==3441:
                               self.armed_away =False
                               self.armed_night =False
@@ -374,11 +377,11 @@ class JFLWatcher(threading.Thread):
                            if self.bitExtracted(data[15],1,6) ==1:
                              _LOGGER.info("Sistema Particionado %s",self.bitExtracted(data[15], 1, 6))
                              self.CONF_PARTITION = True
-                             dispatcher_send(self.hass,CONF_PARTITION, True)    
+                             dispatcher_send(self.hass,CONF_PARTITION, True)   
                            else:
                              _LOGGER.info("Sistema sem Paticao %s",self.bitExtracted(data[15], 1, 6))
-                             self.CONF_PARTITION = True
-                             dispatcher_send(self.hass,CONF_PARTITION, True)
+                             self.CONF_PARTITION = False
+                             dispatcher_send(self.hass,CONF_PARTITION, False)   
                            if self.CONF_PARTITION:
                               if self.bitExtracted(data[15],1,1) ==1:
                                  _LOGGER.info("Particao A Armada %s",self.bitExtracted(data[15], 1, 1))
@@ -434,7 +437,8 @@ class JFLWatcher(threading.Thread):
                            conn.send('@1'.encode('ascii'))
                         else:
                               conn.send('@1'.encode('ascii'))
-                              self.armed_away = False
+                              self._attr_state = STATE_ALARM_DISARMED
+                                                          
  
                       dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
  
