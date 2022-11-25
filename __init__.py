@@ -248,6 +248,41 @@ class JFLWatcher(threading.Thread):
                         break
                       else:
                         _LOGGER.info("dentro da conexao recebido %s" %(data))
+                        ####evento
+                        if len(data) ==24:
+                           evento = data[8:12].decode('ascii')
+                           if evento == '3401' or evento == '3407' or evento =='3403' or evento =='3404' or evento =='3408' or evento=='3409' or evento=='3441':
+                              self.armed_away =False
+                              self.armed_night =False
+                              self.armed_home =True
+                              self._attr_state = STATE_ALARM_ARMED_HOME
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if evento == '1401' or evento =='1407' or evento =='1403' or evento=='1409':
+                              _LOGGER.warn("Evento  %s", evento)
+                              self.armed_home =False
+                              self.armed_away =False
+                              self.armed_night =False
+                              self._attr_state = STATE_ALARM_DISARMED
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if evento == '1130' and self.armed_home == True:
+                              self.fire_alarm=True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if evento == '3130':
+                              self.fire_alarm=False
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if evento == '1134' and self.armed_home == True:
+                              self.fire_alarm=True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if evento == '3134':
+                              self.fire_alarm=False
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if evento == '1137' and self.armed_home == True:
+                              self.fire_alarm=True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if evento == '3137':
+                              self.fire_alarm=False
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           _LOGGER.warn("Eventos=%s", evento)
                         if len(data) == 118:
                            #_LOGGER.warn("Recebido informacoes de Status")
                            #_LOGGER.warn("dia  %s",  data[6])
@@ -290,7 +325,7 @@ class JFLWatcher(threading.Thread):
 
                                   
                         if chr(data[0]) == '{':
-                          # _LOGGER.warn("tamanho do Pacote %s",len(data))
+                           _LOGGER.warn("tamanho do Pacote %s",len(data))
                            if chr(data[3]) == '$':
                               if '00' in f'{data[21]:0>2X}':
                                  #_LOGGER.warn("com particao 01 nao configurada")
