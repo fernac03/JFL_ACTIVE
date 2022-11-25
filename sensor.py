@@ -67,12 +67,12 @@ class JFLActive20Battery(SensorEntity):
 
     def _message_callback(self, message):
         if message.battery_low:
-            self._attr_icon = "mdi:battery"
-            self._attr_native_value = "Charged"
-            self.schedule_update_ha_state()
-        else:
             self._attr_icon = "mdi:battery-10"
             self._attr_native_value = "Low"
+            self.schedule_update_ha_state()
+        else:
+            self._attr_icon = "mdi:battery"
+            self._attr_native_value = "Charged"
             self.schedule_update_ha_state()
 
 class JFLActive20Siren(SirenEntity):

@@ -127,7 +127,13 @@ async def _update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 class JFLWatcher(threading.Thread):
-    """Event listener thread to process NX584 events."""
+    """Event listener thread to process JFL events."""
+    def checksum(self,dados):
+        checksum = 0
+        for n in dados:
+           checksum ^= n
+        return checksum
+
 
     def __init__(self,hass, ad_connection,queue1):
         """Initialize JFL watcher thread."""
@@ -153,7 +159,7 @@ class JFLWatcher(threading.Thread):
         self.ac_power = True
         self.alarm_event_occurred = False
         self.backlight_on = True
-        self.battery_low = True
+        self.battery_low = False
         self.check_zone = False
         self.chime_on = True
         self.CONF_PARTITION = False
@@ -161,9 +167,43 @@ class JFLWatcher(threading.Thread):
         self.programming_mode = False
         self.ready = True
         self.zone_bypassed = False
-     
     def bitExtracted(self, number, k, p):
         return ( ((1 << k) - 1)  &  (number >> (p-1) ) );
+    def setZoneStatus(self,zone,status):
+        if status == 0:
+             ##dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
+             self.text = "Zona " + str(zone) + " Zona Desabilitada"
+             ##dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+        elif status == 1:
+             #dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
+             self.text = "Zona " + str(zone) + " Zona Inibida"
+             #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+        elif status == 2:
+             dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
+             self.text = "Zona " + str(zone) + " Zona Disparada"
+             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+        elif status == 3:
+             #dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
+             self.text = "Zona " + str(zone) + " Sensor sem Comunicacao"
+             #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+        elif status == 4:
+             #dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
+             self.text = "Zona " + str(zone) + " Zona Em curto"
+             #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+        elif status == 5:
+             #dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
+             self.text = "Zona " + str(zone) + " Tamper Aberto"
+             #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+        elif status == 6:
+             #dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
+             self.text = "Zona " + str(zone) + " Bateria Baixa"
+             #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+        elif status == 7:
+             dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
+             self.text = "Zona " + str(zone) + " Zona Aberta"
+             dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
+        elif status == 8:
+             dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, zone)
 
     def run(self):
         """Open a connection to JFL Active20."""
@@ -179,18 +219,22 @@ class JFLWatcher(threading.Thread):
            #s.setblocking(False)
            while True:  
              conn, addr = s.accept()
+             sequencial=1
              with conn:
                  _LOGGER.warn("Connected by %s",addr)
                  self.text = "Connected"
                  t=time.time()
                  while True:
+                     sequencial += 1  
+                     if sequencial > 256:
+                        sequencual=1
                      elapsed = 0
                      if not queue1.empty():
                         val = queue1.get()
                         sent = conn.send(val)
                      conn.settimeout(2)
                      try:
-                       data = conn.recv(35)
+                       data = conn.recv(255)
                      except socket.timeout as e:
                        err = e.args[0]
                        if err == 'timed out':
@@ -203,243 +247,238 @@ class JFLWatcher(threading.Thread):
                       if len(data) == 0:
                         break
                       else:
-                        if len(data) == 30 and '36'  in f'{data[0]:0>2X}':
-                           if self.CONF_PARTITION:
-                              if self.bitExtracted(data[7], 1, 2) == 1:
-                                 _LOGGER.warn("com particao Part A Armada Stay")
-                                 self._attr_state = STATE_ALARM_ARMED_HOME
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)
-                              else:
-                                 _LOGGER.warn("com particao Part A Desarmada")
+                        _LOGGER.info("dentro da conexao recebido %s" %(data))
+                        if len(data) == 118:
+                           #_LOGGER.warn("Recebido informacoes de Status")
+                           #_LOGGER.warn("dia  %s",  data[6])
+                           #_LOGGER.warn("mes  %s", data[7])
+                           #_LOGGER.warn("ano  %s", data[8])
+                           #_LOGGER.warn("Hora  %s", data[9])
+                           #_LOGGER.warn("Minuto  %s", data[10])
+                           #_LOGGER.warn("Segundo  %s", data[11])
+                           
+                           if data[12]/14 > 12.5:
+                              #_LOGGER.warn("Bateria  Normal")
+                              self.text = "Bateria Normal"
+                              self.battery_low = False
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           if data[12]/14 < 11:
+                              self.text = "Bateria Baixa"
+                              #_LOGGER.warn("Bateria Baixa")
+                              self.battery_low = True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           #_LOGGER.warn("PGM  %s", data[13])
+                           ### status das particoes
+                           #for i in range(1,16):
+                           #   _LOGGER.warn("###############  PART %s Status %s", i,data[13+i])
+                           ### Status eletrificador
+                           #_LOGGER.warn("Eletrificador %s",data[30])
+                           #### Status das zonas
+                           zona=1
+                           for i in range(50):
+                               high, low = data[31+i] >>4, data[31+i] & 0x0F
+                               for x in range(1,3):
+                                  if x ==1:
+                                     #_LOGGER.warn("###############  Zona %s Status %s", zona,high)
+                                     self.setZoneStatus(zona,high)
+                                     zona += 1  
+                                  else:
+                                     #_LOGGER.warn("###############  Zona %s Status %s", zona,low)
+                                     self.setZoneStatus(zona,low)
+                                     zona +=1
+                           
+
+                                  
+                        if chr(data[0]) == '{':
+                          # _LOGGER.warn("tamanho do Pacote %s",len(data))
+                           if chr(data[3]) == '$':
+                              if '00' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 nao configurada")
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 self.alarm_sounding = False
+                                 self.fire_alarm = False
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '01' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 Desarmada pronta sem disparo")
+                                 self.alarm_sounding = False
+                                 self.fire_alarm = False
                                  self._attr_state = STATE_ALARM_DISARMED
                                  dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
-                              if self.bitExtracted(data[7], 1, 3) == 1:
-                                 _LOGGER.info("Part B Armada")
-                                 #self._attr_state = STATE_ALARM_ARMED_AWAY
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              else:
-                                 _LOGGER.info("Part B Desarmada")
-                                 #self._attr_state = STATE_ALARM_DISARMED
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              if self.bitExtracted(data[7], 1, 4) == 1:
-                                 _LOGGER.info("Part B Armada")
-                                 #self._attr_state = STATE_ALARM_ARMED_AWAY
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              else:
-                                 _LOGGER.info("Part B Desarmada")
-                                 #self._attr_state = STATE_ALARM_DISARMED
-                                 #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                           else:
-                               if self.bitExtracted(data[7], 1, 1) == 1:
-                                 #_LOGGER.warn("Central Armada")
-                                 #_LOGGER.warn(STATE_ALARM_ARMED_HOME)
-                                 self.armed_home = True
+                              elif '02' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 Armada sem disparo")
+                                 self.fire_alarm = False
+                                 self.alarm_sounding = False
+                                 self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '03' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 Armada HOME sem disparo")
+                                 self.alarm_sounding = False
+                                 self.fire_alarm = False
                                  self._attr_state = STATE_ALARM_ARMED_HOME
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                               else:
-                                 #_LOGGER.warn("Central Desarmada")
-                                 self.armed_home = False
-                                 self.armed_away = False
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '04' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 Desarmada nao pronta e sem disparo")
                                  self._attr_state = STATE_ALARM_DISARMED
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)       
-                           for i in range(1,9):
-                              if self.bitExtracted(data[1], 1, i) == 1:
-                                 dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
-                                 self.text = "Zona " + str(i) + " Aberta"
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              else:
-                                 dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, i)
-                             
-                              _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[1], 1, i))
-                              _LOGGER.info ("zona %s Habilitada %s (0-nao , 1 sim)", i ,self.bitExtracted(data[26], 1, i))
-                           for i in range(10,17):
-                              if self.bitExtracted(data[2], 1, i) == 1:
-                                dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
-                                self.text = "Zona " + str(i) + " Aberta"
-                                dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              else:
-                                dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, i)
+                                 self.alarm_sounding = False
+                                 self.fire_alarm = False
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '81' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("Desarmada em disparo")
+                                 self.alarm_sounding = True
+                                 self.fire_alarm = True
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '82' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("armada em disparo")
+                                 self.alarm_sounding = True
+                                 self.fire_alarm = True
+                                 self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '83' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("Armada Stay em disparo")
+                                 self._attr_state = STATE_ALARM_ARMED_HOME
+                                 self.alarm_sounding = True
+                                 self.fire_alarm = True
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '84' in f'{data[21]:0>2X}':
+                                 #_LOGGER.warn("Desarmada pronta e em disparo")
+                                 self.alarm_sounding = True
+                                 self.fire_alarm = True
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              message = b'\x7b\x0a\x01\x24\x01'
+                              message += bytes({data[17]})
+                              message += bytes({data[18]})
+                              message += bytes({data[19]})
+                              message += bytes({data[20]})
+                              check = self.checksum(message)
+                              message += check.to_bytes(1,'big')
+                              #_LOGGER.warn('Send akc ')
+                              #_LOGGER.warn(message)
+                              conn.send(bytes(message))
 
-                              _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[2], 1, i))
-                              _LOGGER.info ("zona %s Habilitadas %s (0-nao , 1 sim)", i ,self.bitExtracted(data[27], 1, i))
-                           for i in range(18,21):
-                              if self.bitExtracted(data[3], 1, i) == 1:
-                                 dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, i)
-                                 self.text = "Zona " + str(i) + " Aberta"
-                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
-                              else:
-                                 dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, i)
+                           if len(data)==102:
+                              #_LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
+                              if 'A0' in f'{data[41]:0>2X}':
+                                 MODELO = 'Active-32 Duo'
+                              elif 'A1' in f'{data[41]:0>2X}':
+                                 MODELO = 'Active 20 Ultra/GPRS'
+                              elif 'A2' in f'{data[41]:0>2X}':
+                                 MODELO = 'Active 8 Ultra'
+                              elif 'A3' in f'{data[41]:0>2X}':
+                                 MODELO = 'Active 20 Ethernet'
+                              elif 'A4' in f'{data[41]:0>2X}':
+                                 MODELO = 'Active 100 Bus'
+                              elif 'A5' in f'{data[41]:0>2X}':
+                                 MODELO = 'Active 20 Bus'
+                              elif 'A6' in f'{data[41]:0>2X}':
+                                 MODELO = 'Active Full 32'
+                              elif 'A7' in f'{data[41]:0>2X}':
+                                 MODELO = 'Active 20'
+                              self.CONF_MODELO = MODELO
+                              ####Status######
+                              #_LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
+                              #_LOGGER.warn("Total de particoes  %s", f'{data[51]:0>2X}')
+                              #_LOGGER.warn("Conta  %s", f'{data[52]:0>2X}')
+                              #_LOGGER.warn("Conta  %s", f'{data[53]:0>2X}')
+                              #_LOGGER.warn("Eletrificador   %s", f'{data[54]:0>2X}')
+                              if '00' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 nao configurada")
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 self.alarm_sounding = False
+                                 self.fire_alarm = False
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '01' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 Desarmada pronta sem disparo")
+                                 self.alarm_sounding = False
+                                 self.fire_alarm = False
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '02' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 Armada sem disparo")
+                                 self.fire_alarm = False
+                                 self.alarm_sounding = False
+                                 self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '03' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 Armada HOME sem disparo")
+                                 self.alarm_sounding = False
+                                 self.fire_alarm = False
+                                 self._attr_state = STATE_ALARM_ARMED_HOME
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '04' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("com particao 01 Desarmada nao pronta e sem disparo")
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 self.alarm_sounding = False
+                                 self.fire_alarm = False
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '81' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("Desarmada em disparo")
+                                 self.alarm_sounding = True
+                                 self.fire_alarm = True
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '82' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("armada em disparo")
+                                 self.alarm_sounding = True
+                                 self.fire_alarm = True
+                                 self._attr_state = STATE_ALARM_ARMED_AWAY
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '83' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("Armada Stay em disparo")
+                                 self._attr_state = STATE_ALARM_ARMED_HOME
+                                 self.alarm_sounding = True
+                                 self.fire_alarm = True
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
+                              elif '84' in f'{data[85]:0>2X}':
+                                 #_LOGGER.warn("Desarmada pronta e em disparo")
+                                 self.alarm_sounding = True
+                                 self.fire_alarm = True
+                                 self._attr_state = STATE_ALARM_DISARMED
+                                 dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
 
-                              _LOGGER.info ("zona %s status %s (0-Fechada , 1 Aberta)", i ,self.bitExtracted(data[3], 1, i))
-                              _LOGGER.info ("zona %s Habilitada %s (0-nao , 1 sim)", i ,self.bitExtracted(data[28], 1, i))
-                           
-                           
 
-                           if self.bitExtracted(data[7], 1, 5) == 1:
-                              _LOGGER.info("PGM 1 Acionada")
-                           else:
-                              _LOGGER.info("PGM 1 Off")
-                           if self.bitExtracted(data[7], 1, 6) == 1:
-                              _LOGGER.info("PGM 2 acionada")
-                           else:
-                              _LOGGER.info("PGM 2 off")
-                           if self.bitExtracted(data[7], 1, 7) == 1:
-                              _LOGGER.info("PGM 3 acionada")
-                           else:
-                              _LOGGER.info("PGM 3 off")
-                           if self.bitExtracted(data[7], 1, 8) == 1:
-                              _LOGGER.info("PGM 4 Acionada")
-                           else:
-                              _LOGGER.info("PGM 4 Off")
-                           #_LOGGER.warn("prob1  %s", f'{data[8]:0>2X}')
-                           #_LOGGER.warn("prob2  %s", f'{data[9]:0>2X}')
-                           #_LOGGER.warn("PERM1  %s", f'{data[10]:0>2X}')
-                           #_LOGGER.warn("Permisssao zonas  %s", f'{data[11]:0>2X}')
-                           if data[14] <= 0x96:
-                              self.text = "Bateria Baixa"
-                              self.battery_low = True
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           if data[14] >= 0xBE:
-                              self.text = "Bateria Normal"
-                              self.battery_low = True
-                              #_LOGGER.warn("texto %s", self.text)
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           #_LOGGER.warn("Nivel gprs  %s", f'{data[15]:0>2X}')
-                           #_LOGGER.warn("data hora  %s", f'{data[16]:0>2X}')
-                           #_LOGGER.warn("conta part a  %s", f'{data[22]:0>2X}')
-                           #_LOGGER.warn("conta part b  %s", f'{data[24]:0>2X}')
-                           #_LOGGER.warn("zonas Habilitadas  %s", f'{data[26]:0>2X}')
-
-                        if chr(data[0]) == '!':
-                           #_LOGGER.warn("Tipo Central  %s", f'{data[27]:0>2X}')
-                           if 'A0' in f'{data[27]:0>2X}':
-                              MODELO = 'Active-32 Duo'
-                           elif 'A1' in f'{data[27]:0>2X}':
-                              MODELO = 'Active 20 Ultra/GPRS'
-                           elif 'A2' in f'{data[27]:0>2X}':
-                              MODELO = 'Active 8 Ultra'
-                           elif 'A3' in f'{data[27]:0>2X}':
-                              MODELO = 'Active 20 Ethernet'
-                           elif '06' in f'{data[27]:0>2X}':
-                             MODELO = 'Active 20 Ethernet'
-                           elif '05' in f'{data[27]:0>2X}':
-                              MODELO = 'Active 20 Ultra'
-                           elif '04' in f'{data[27]:0>2X}':
-                              MODELO = 'Active 20 GPRS'
-                           elif '00' in f'{data[27]:0>2X}':
-                              MODELO = 'Active 20 GPRS'
-                           self.CONF_MODELO = MODELO
-                           dispatcher_send(self.hass, CONF_MODELO, MODELO)    
-                           conn.send('+'.encode('ascii'))
-                        elif chr(data[0]) == '@':
-                              if time.time()-t>20:
-                                 t=time.time()
-                                 conn.send(b'\xb3\x36\x18\x00\x00\x00\x00\x9d')
-                              else:                    
-                                conn.send('@1'.encode('ascii'))
-                        elif chr(data[0]) == '$':
-                           evento = data[5:9].decode('ascii')
-                           self.alarm_event_occurred = evento
-                           _LOGGER.warn("Evento  %s", evento)
-                           if evento == 3401 or evento ==3407 or evento ==3403 or evento ==3404 or evento ==3408 or evento==3409 or evento==3441:
-                              self.armed_away =False
-                              self.armed_night =False
-                              self.armed_home =True
-                              self._attr_state = STATE_ALARM_ARMED_HOME
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                              _LOGGER.warn("Evento  %s", evento)
-                           if evento == 1401 or evento ==1407 or evento ==1403 or evento==1409:
-                              _LOGGER.warn("Evento  %s", evento)
-                              self.armed_home =False
-                              self.armed_away =False
-                              self.armed_night =False
-                              self._attr_state = STATE_ALARM_DISARMED
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           if evento == 1130 and self.armed_home == True:
-                              self.fire_alarm=True
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           if evento == 3130:
-                              self.fire_alarm=False
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           if evento == 1134 and self.armed_home == True:
-                              self.fire_alarm=True
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           if evento == 3134:
-                              self.fire_alarm=False
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           if evento == 1137 and self.armed_home == True:
-                              self.fire_alarm=True
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           if evento == 3137:
-                              self.fire_alarm=False
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           _LOGGER.warn("Evento  %s", evento)
-                           if self.bitExtracted(data[15],1,6) ==1:
-                             _LOGGER.info("Sistema Particionado %s",self.bitExtracted(data[15], 1, 6))
-                             self.CONF_PARTITION = True
-                             dispatcher_send(self.hass,CONF_PARTITION, True)   
-                           else:
-                             _LOGGER.info("Sistema sem Paticao %s",self.bitExtracted(data[15], 1, 6))
-                             self.CONF_PARTITION = False
-                             dispatcher_send(self.hass,CONF_PARTITION, False)   
-                           if self.CONF_PARTITION:
-                              if self.bitExtracted(data[15],1,1) ==1:
-                                 _LOGGER.info("Particao A Armada %s",self.bitExtracted(data[15], 1, 1))
-                                # self._attr_state = STATE_ALARM_ARMED_HOME
-                                 #self.armed_home = True
-                              else:
-                                 #self._attr_state = STATE_ALARM_DISARMED
-                                 #self.armed_home = False
-                                 _LOGGER.info("Particao A Desarmada %s",self.bitExtracted(data[15], 1, 1))
-                              if self.bitExtracted(data[15],1,2) ==1:
-                                 _LOGGER.info("Particao B Armada %s",self.bitExtracted(data[15], 1, 2))
-                              else:
-                                 #self._attr_state = STATE_ALARM_DISARMED
-                                 _LOGGER.info("Particao B Desarmada %s",self.bitExtracted(data[15], 1, 2))
-                           else:
-                              if self.bitExtracted(data[15],1,1) ==1:
-                                 #self._attr_state = STATE_ALARM_ARMED_HOME
-                                 ##self.armed_away = False
-                                 #self.armed_night = False
-                                 ##self.armed_home = True
-                                 #dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self) 
-                                 _LOGGER.warn("Evento  %s", evento)                                 
-                              else:
-                                 #self._attr_state = STATE_ALARM_DISARMED
-                                 ##self.armed_home = False
-                                 #self.armed_away = False
-                                 #self.armed_night = False
-                                 #dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                                 _LOGGER.warn("Evento  %s", evento)
-                           if self.bitExtracted(data[15],1,3) ==1:
-                             _LOGGER.info("Problema Detectado %s",self.bitExtracted(data[15], 1, 3))
-                           else:
-                             _LOGGER.info("Sistema OK %s",self.bitExtracted(data[15], 1, 3))
-                           if self.bitExtracted(data[15],1,4) ==1:
-                             _LOGGER.info("Sirene Principal Tocando %s",self.bitExtracted(data[15], 1, 4))
-                             self.alarm_sounding = True
-                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           else:
-                             self.alarm_sounding = False
-                             _LOGGER.info("Sirene off %s",self.bitExtracted(data[15], 1, 4))
-                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           if self.bitExtracted(data[15],1,5) ==1:
-                             _LOGGER.info("Sirene B Tocando %s",self.bitExtracted(data[15], 1, 5))
-                             self.alarm_sounding = True
-                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           else:
-                             self.alarm_sounding = False
-                             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                             _LOGGER.info("Sirene B off %s",self.bitExtracted(data[15], 1, 5))
-                           
- 
-                           dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           conn.send('@1'.encode('ascii'))
-                        else:
-                              conn.send('@1'.encode('ascii'))
-                              self._attr_state = STATE_ALARM_DISARMED
-                                                          
- 
+                              #_LOGGER.warn("Estado da particao -01  %s", f'{data[85]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -02  %s", f'{data[86]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -03  %s", f'{data[87]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -04  %s", f'{data[88]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -05  %s", f'{data[89]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -06  %s", f'{data[90]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -07  %s", f'{data[91]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -08  %s", f'{data[92]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -09  %s", f'{data[93]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -10  %s", f'{data[94]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -11  %s", f'{data[95]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -12  %s", f'{data[96]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -13  %s", f'{data[97]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -14  %s", f'{data[98]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -07  %s", f'{data[99]:0>2X}')
+                              #_LOGGER.warn("Estado da particao -08  %s", f'{data[100]:0>2X}')
+                              dispatcher_send(self.hass, CONF_MODELO, MODELO)    
+                              message = b'\x7B\7\x01\x21\x01\x01'
+                              check = self.checksum(message)
+                              message += check.to_bytes(1,'big')
+                              #_LOGGER.warn('Send Accept')
+                              conn.send(bytes(message))
+                              ##envia pedido de Status
+                              message = b'\x7b\5\x01\x4d'
+                              check = self.checksum(message)
+                              message += check.to_bytes(1,'big')
+                              #_LOGGER.warn('Envia pedido de Status')
+                              conn.send(bytes(message))
+                           if len(data)==5:
+                              message = b'\x7B\6\x01\x40\x01'
+                              check = self.checksum(message)
+                              message += check.to_bytes(1,'big')
+                              #_LOGGER.warn('Send Keep')
+                              #_LOGGER.warn(message)
+                              conn.send(bytes(message))
+                      if time.time()-t>20:
+                         t=time.time()
+                         message = b'\x7b\5\x01\x4d'
+                         check = self.checksum(message)
+                         message += check.to_bytes(1,'big')
+                         conn.send(bytes(message))
                       dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
  
         

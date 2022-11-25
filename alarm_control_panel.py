@@ -111,16 +111,16 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            self._attr_state = STATE_ALARM_TRIGGERED
         elif message.armed_away:
            self._attr_state = STATE_ALARM_ARMED_AWAY
-           _LOGGER.warning("mensagem armed_AWAY")
+           #_LOGGER.warn("mensagem armed_AWAY")
         elif message.armed_home:
            self._attr_state = STATE_ALARM_ARMED_HOME
-           _LOGGER.warning("mensagem armed_home")
+           #_LOGGER.warn("mensagem armed_home")
         elif message.armed_night:
            self._attr_state = STATE_ALARM_ARMED_NIGHT
-           _LOGGER.warning("mensagem armed_night")
+           #_LOGGER.warn("mensagem armed_night")
         else:
            self._attr_state = STATE_ALARM_DISARMED
-           _LOGGER.warning("mensagem disarmed")
+           #_LOGGER.warn("mensagem disarmed")
 
         self._attr_extra_state_attributes = {
             "ac_power": message.ac_power,
@@ -146,16 +146,19 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         if not self._validate_code(code, STATE_ALARM_DISARMED):
             return
         if CONF_PARTITION:
-           message = b'\xb3\x36\x02\x00\x00\x00\x00'
+           #message = b'\xb3\x36\x02\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4f\x01'
            check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
-           message = b'\xB3\x36\x02\x01\x00\x00\x00'
+           #message = b'\xB3\x36\x02\x02\x00\x00\x00'
+           message = b'\x7b\6\x01\x4f\x02'
            check = slef.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
-           message = b'\xb3\x36\x02\x00\x00\x00\x00'
+           #message = b'\xb3\x36\x02\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4f\x01'
            check = self.checksum(message)
            self._attr_state = STATE_ALARM_DISARMED
            message += check.to_bytes(1,'big')
@@ -167,37 +170,43 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
             return
 
         if CONF_PARTITION:
-           message = b'\xb3\x36\x01\x00\x00\x00\x00'
+           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
-           message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           #message = b'\xb3\x36\x01\x02\x00\x00\x00'
+           message = b'\x7b\6\x01\x4e\x02'
            check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
-           message = b'\xb3\x36\x01\x00\x00\x00\x00'
+           _LOGGER.warning("enviando arme away")
+           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
            self._attr_state = STATE_ALARM_ARMED_AWAY
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
-           self._client.put(message)
 
     def alarm_arm_home(self, code: str | None = None) -> None:
         """Send arm home command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
             return
         if CONF_PARTITION:
-           message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
-           message = b'\xb3\x36\x01\x00\x00\x00\x00'
+           _LOGGER.warning("enviando arme home")
+           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
            self._attr_state = STATE_ALARM_ARMED_HOME
            message += check.to_bytes(1,'big')
-           self._client.put(message)
+           self._client.put(bytes(message))
 
 
     def alarm_arm_night(self, code: str | None = None) -> None:
@@ -206,16 +215,20 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
             return
         
         if CONF_PARTITION:
-           message = b'\xb3\x36\x01\x00\x00\x00\x00'
+           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
-           message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4e\x02'
            check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
-           message = b'\xb3\x36\x01\x00\x00\x00\x00'
+           _LOGGER.warning("enviando arme night")
+           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
+           message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
            self._attr_state = STATE_ALARM_ARMED_NIGHT
            message += check.to_bytes(1,'big')
