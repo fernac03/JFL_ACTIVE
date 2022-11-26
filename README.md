@@ -6,7 +6,7 @@ na active 20 ethernet é na posição 702  e 703
 defina  uma  senha para o alarme, não precisa  ser  a mesma  da central.
 
 #####  Instalação
- Copie  o Conteudo deste  repositorio para  a pasta custom_components\jfl_active20
+ Copie  o Conteudo deste  repositorio para  a pasta custom_components\jfl_active
  
  configure  o ip  do seu homeAssistant  e  a porta  na qual a central  se conectara
  
