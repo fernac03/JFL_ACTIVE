@@ -1,14 +1,19 @@
-# JFL_ACTIVE
-JFL linha Active integraçao com o Home Assistant
-Configure a integração com o ip e portas  que estara  houvindo a central JFL 
-configure a central para enviar o report via ethernet para  o ip e porta que configurado  a integração  
-na active 20 ethernet é na posição 702  e 703 
-defina  uma  senha para o alarme, não precisa  ser  a mesma  da central.
+# JFL Active
 
-#####  Instalação
- Copie  o Conteudo deste  repositorio para  a pasta custom_components\jfl_active
- 
- configure  o ip  do seu homeAssistant  e  a porta  na qual a central  se conectara
- 
- configure  as zonas.
- 
+Integração com o Home Assistant para as centrais de alarme JFL da linha Active.
+
+## Instalação via HACS
+
+[![Abrir seu Home Assistant instance e abrir um repositório dentro do Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=fernac03&repository=JFL_ACTIVE&category=integration)
+
+## Instalação manual
+
+Copie o conteúdo deste repositório para a pasta `/config/custom_components/jfl_active`.
+
+## Configuração
+
+1. Configure a integração com o ip e portas que estará houvindo a central JFL
+2. Configure a central para enviar o report via ethernet para o ip e porta que foi configurado a integração
+   - Na Active 20 ethernet é na posição 702 e 703
+3. Defina uma senha para o alarme, não precisa ser a mesma da central
+4. Configure as zonas
