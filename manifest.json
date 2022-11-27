@@ -1,12 +1,13 @@
 {
-  "domain": "jfl_active",
-  "version": "0.0.13",
+  "domain": "jfl_active20",
+  "version": "0.0.11",
   "name": "JFL Active",
   "documentation": "https://github.com/fernac03/JFL_ACTIVE",
   "issue_tracker": "https://github.com/fernac03/JFL_ACTIVE/issues",
   "requirements": ["bitarray"],
+  "codeowners": [],
   "config_flow": true,
   "iot_class": "local_push",
-  "loggers": ["jfl_active"],
+  "loggers": ["jfl_active20"],
   "codeowners": [ "@fernac03"]
 }

@@ -1,4 +1,4 @@
-"""Constants for the JFL  Active component."""
+"""Constants for the JFL  Active 20 Ethernet component."""
 
 CONF_ALT_NIGHT_MODE = "alt_night_mode"
 CONF_CODE_REQUIRED = "code_required"
@@ -34,14 +34,14 @@ DEFAULT_ARM_OPTIONS = {
 }
 DEFAULT_ZONE_OPTIONS: dict = {}
 
-DOMAIN = "jfl_active"
+DOMAIN = "jfl_active20"
 
 OPTIONS_ARM = "arm_options"
 OPTIONS_ZONES = "zone_options"
 
 
-SIGNAL_PANEL_MESSAGE = "jfl_active.panel_message"
-SIGNAL_REL_MESSAGE = "jfl_active.rel_message"
-SIGNAL_RFX_MESSAGE = "jfl_active.rfx_message"
-SIGNAL_ZONE_FAULT = "jfl_active.zone_fault"
-SIGNAL_ZONE_RESTORE = "jfl_active.zone_restore"
+SIGNAL_PANEL_MESSAGE = "jfl_active20.panel_message"
+SIGNAL_REL_MESSAGE = "jfl_active20.rel_message"
+SIGNAL_RFX_MESSAGE = "jfl_active20.rfx_message"
+SIGNAL_ZONE_FAULT = "jfl_active20.zone_fault"
+SIGNAL_ZONE_RESTORE = "jfl_active20.zone_restore"

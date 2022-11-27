@@ -23,7 +23,7 @@
                 "data": {
                     "protocol": "Protocol"
                 },
-                "title": "Choose JFL Active20 Protocol"
+                "title": "Choose IP and port to listen"
             }
         }
     },
