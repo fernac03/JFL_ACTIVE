@@ -1,4 +1,4 @@
-"""Support for JFL Active20 zone states- represented as binary sensors."""
+"""Support for JFL Active zone states- represented as binary sensors."""
 import logging
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
@@ -38,7 +38,7 @@ ATTR_RF_LOOP1 = "rf_loop1"
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up for JFL Active20 sensor."""
+    """Set up for JFL Active sensor."""
 
     zones = entry.options.get(OPTIONS_ZONES, DEFAULT_ZONE_OPTIONS)
     
@@ -60,7 +60,7 @@ async def async_setup_entry(
 
 
 class AlarmDecoderBinarySensor(BinarySensorEntity):
-    """Representation of an JFL Active20 binary sensor."""
+    """Representation of an JFL Active binary sensor."""
 
     _attr_should_poll = False
 
