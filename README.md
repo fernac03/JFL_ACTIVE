@@ -17,3 +17,10 @@ Copie o conteúdo deste repositório para a pasta `/config/custom_components/jfl
    - Na Active 20 ethernet é na posição 702 e 703
 3. Defina uma senha para o alarme, não precisa ser a mesma da central
 4. Configure as zonas
+
+## Funções
+
+Desarme  -  Desarma as  duas  Partições
+Arme Away (Armar Ausente )  Arma as duas Partiçoes
+Arme Home (Armar em Casa)  Arma  apenas a primeira particao
+Arme Night (Armar a Noite)  Arma  as duas partições
