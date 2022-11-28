@@ -1,4 +1,4 @@
-"""Support for JFL Active20 devices."""
+"""Support for JFL Active devices."""
 from datetime import timedelta
 import logging
 import socket
@@ -63,21 +63,21 @@ queue1 = Queue()
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up JFL Active20 config flow."""
+    """Set up JFL Active config flow."""
     undo_listener = entry.add_update_listener(_update_listener)
 
     ad_connection = entry.data
 
     def stop_alarmdecoder(event):
-        """Handle the shutdown of JFL Active20."""
+        """Handle the shutdown of JFL Active."""
         if not hass.data.get(DOMAIN):
             return
-        _LOGGER.debug("Shutting down JFL Active20")
+        _LOGGER.debug("Shutting down JFL Active")
         hass.data[DOMAIN][entry.entry_id][DATA_RESTART] = False
-        _LOGGER.debug("Shutting down JFL Active20")
+        _LOGGER.debug("Shutting down JFL Active")
         
     async def open_connection():
-        """Open a connection to JFL Active20."""
+        """Open a connection to JFL Active."""
         watcher = JFLWatcher(hass,ad_connection,queue1)
         watcher.start()
 
@@ -100,7 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a JFL Active20 entry."""
+    """Unload a JFL Active entry."""
     hass.data[DOMAIN][entry.entry_id][DATA_RESTART] = False
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
@@ -122,7 +122,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def _update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options update."""
-    _LOGGER.debug("JFL Active20 options updated: %s", entry.as_dict()["options"])
+    _LOGGER.debug("JFL Active options updated: %s", entry.as_dict()["options"])
     await hass.config_entries.async_reload(entry.entry_id)
 
 
@@ -206,7 +206,7 @@ class JFLWatcher(threading.Thread):
              dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, zone)
 
     def run(self):
-        """Open a connection to JFL Active20."""
+        """Open a connection to JFL Active."""
         _LOGGER.warn("Starting JFL Integration")
         device = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self) 
