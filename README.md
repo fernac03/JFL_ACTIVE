@@ -20,7 +20,7 @@ Copie o conteúdo deste repositório para a pasta `/config/custom_components/jfl
 
 ## Funções
 
-Desarme  -  Desarma as  duas  Partições
-Arme Away (Armar Ausente )  Arma as duas Partiçoes
-Arme Home (Armar em Casa)  Arma  apenas a primeira particao
-Arme Night (Armar a Noite)  Arma  as duas partições
+Desarme  -  Desarma as  duas  Partições<br>
+Arme Away (Armar Ausente )  Arma as duas Partiçoes<br>
+Arme Home (Armar em Casa)  Arma  apenas a primeira particao<br>
+Arme Night (Armar a Noite)  Arma  as duas partições<br>
