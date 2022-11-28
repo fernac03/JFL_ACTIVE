@@ -4,7 +4,7 @@
             "already_configured": "Device is already configured"
         },
         "create_entry": {
-            "default": "Successfully connected to JFL Active20."
+            "default": "Successfully connected to JFL Active."
         },
         "error": {
             "cannot_connect": "Failed to connect"
@@ -41,14 +41,14 @@
                     "auto_bypass": "Auto Bypass on Arm",
                     "code_arm_required": "Code Required for Arming"
                 },
-                "title": "Configure JFl Active20"
+                "title": "Configure JFl Active"
             },
             "init": {
                 "data": {
                     "edit_select": "Edit"
                 },
                 "description": "What would you like to edit?",
-                "title": "Configure JFL Active20"
+                "title": "Configure JFL Active"
             },
             "zone_details": {
                 "data": {
@@ -60,14 +60,14 @@
                     "zone_type": "Zone Type"
                 },
                 "description": "Enter details for zone {zone_number}. To delete zone {zone_number}, leave Zone Name blank.",
-                "title": "Configure JFL Active20"
+                "title": "Configure JFL Active"
             },
             "zone_select": {
                 "data": {
                     "zone_number": "Zone Number"
                 },
                 "description": "Enter the zone number you'd like to to add, edit, or remove.",
-                "title": "Configure JFL Active20"
+                "title": "Configure JFL Active"
             }
         }
     }
