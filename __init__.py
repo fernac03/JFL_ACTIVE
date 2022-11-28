@@ -214,7 +214,10 @@ class JFLWatcher(threading.Thread):
            self.text = "Not Connected"
            dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-           s.bind((self.host, self.port))
+           try:
+              s.bind((self.host, self.port))
+           except:
+              return
            s.listen()
            #s.setblocking(False)
            while True:  
