@@ -5,9 +5,8 @@
   "documentation": "https://github.com/fernac03/JFL_ACTIVE",
   "issue_tracker": "https://github.com/fernac03/JFL_ACTIVE/issues",
   "requirements": ["bitarray"],
-  "codeowners": [],
   "config_flow": true,
   "iot_class": "local_push",
   "loggers": ["jfl_active20"],
-  "codeowners": [ "@fernac03"]
+  "codeowners": ["@fernac03"]
 }
