@@ -1,4 +1,4 @@
-"""Config flow for JFL Active20."""
+"""Config flow for JFL Active."""
 from __future__ import annotations
 
 import logging
@@ -58,11 +58,11 @@ class AlarmDecoderFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> AlarmDecoderOptionsFlowHandler:
-        """Get the options flow for JFL Active20."""
+        """Get the options flow for JFL Active."""
         return AlarmDecoderOptionsFlowHandler(config_entry)
 
     async def async_step_user(self, user_input=None):
-        """Handle JFL Active 20 setup."""
+        """Handle JFL Active  setup."""
         errors = {}
         if user_input is not None:
             if _device_already_added(
@@ -79,7 +79,7 @@ class AlarmDecoderFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 device.bind((host,port))
                 device.listen()
                 device.shutdown(2)
-                _LOGGER.info("Connection from JFL Active20 possible")
+                _LOGGER.info("Connection from JFL Active possible")
                 return self.async_create_entry(
                     title=title, data={**connection}
                 )
@@ -87,7 +87,7 @@ class AlarmDecoderFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.debug("error:%s",err)
                 errors["base"] = "cannot_connect"
             except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception during JFL Active20 setup")
+                _LOGGER.exception("Unexpected exception during JFL Active setup")
                 errors["base"] = "unknown"
 
         schema = vol.Schema(
