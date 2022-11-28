@@ -19,19 +19,19 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up for JFL Active20 sensor."""
+    """Set up for JFL Active sensor."""
 
 
-    entity = JFLActive20Sensor()
+    entity = JFLActiveSensor()
     async_add_entities([entity])
-    entity = JFLActive20Battery()
+    entity = JFLActiveBattery()
     async_add_entities([entity])
-    entity = JFLActive20Siren()
+    entity = JFLActiveSiren()
     async_add_entities([entity])
 
 
-class JFLActive20Sensor(SensorEntity):
-    """Representation of an JFL Active20 keypad."""
+class JFLActiveSensor(SensorEntity):
+    """Representation of an JFL Active keypad."""
 
     _attr_icon = "mdi:alarm-check"
     _attr_name = "Alarm Panel Display"
@@ -50,8 +50,8 @@ class JFLActive20Sensor(SensorEntity):
             self._attr_native_value = message.text
             self.schedule_update_ha_state()
 
-class JFLActive20Battery(SensorEntity):
-    """Representation of an JFL Active20 Batery."""
+class JFLActiveBattery(SensorEntity):
+    """Representation of an JFL Active Batery."""
     
     _attr_icon = "mdi:battery-10"
     _attr_name = "Alarm Panel Baterry"
@@ -75,8 +75,8 @@ class JFLActive20Battery(SensorEntity):
             self._attr_native_value = "Charged"
             self.schedule_update_ha_state()
 
-class JFLActive20Siren(SirenEntity):
-    """Representation of an JFL Active20 Siren."""
+class JFLActiveSiren(SirenEntity):
+    """Representation of an JFL Active Siren."""
     _attr_icon = "mdi:alarm-bell"
     _attr_name = "Alarm Panel Siren A"
     _attr_should_poll = True
