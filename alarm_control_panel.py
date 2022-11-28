@@ -1,4 +1,4 @@
-"""Support for JFL Active20 alarm control panels. """
+"""Support for JFL Active alarm control panels. """
 from __future__ import annotations
 
 import voluptuous as vol
@@ -45,7 +45,7 @@ ATTR_KEYPRESS = "keypress"
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up for JFL Active20 alarm panels."""
+    """Set up for JFL Active alarm panels."""
     options = entry.options
     arm_options = options.get(OPTIONS_ARM, DEFAULT_ARM_OPTIONS)
     client = hass.data[DOMAIN][entry.entry_id][DATA_AD]
@@ -78,7 +78,7 @@ async def async_setup_entry(
 
 
 class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
-    """Representation of an JFL Active20 alarm panel."""
+    """Representation of an JFL Active alarm panel."""
 
     _attr_name = "Alarm Panel"
     _attr_should_poll = False
