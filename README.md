@@ -14,7 +14,9 @@ Copie o conteúdo deste repositório para a pasta `/config/custom_components/jfl
 
 1. Configure a integração com o ip e portas que estará houvindo a central JFL
 2. Configure a central para enviar o report via ethernet para o ip e porta que foi configurado a integração
-   - Na Active 20 ethernet é na posição 702 e 703
+   - Na Active 20 ethernet IP de destino (endereços 702 e 703) e a porta de destino (endereços 706 e 707):
+
+
 3. Defina uma senha para o alarme, não precisa ser a mesma da central
 4. Configure as zonas
 
