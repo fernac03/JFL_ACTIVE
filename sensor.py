@@ -36,7 +36,7 @@ class JFLActiveSensor(SensorEntity):
     _attr_icon = "mdi:alarm-check"
     _attr_name = "Alarm Panel Display"
     _attr_should_poll = False
-
+    _attr_unique_id = "JFLActive_KEYPAD"
     async def async_added_to_hass(self):
         """Register callbacks."""
         self.async_on_remove(
@@ -56,7 +56,7 @@ class JFLActiveBattery(SensorEntity):
     _attr_icon = "mdi:battery-10"
     _attr_name = "Alarm Panel Baterry"
     _attr_should_poll = True
-
+    _attr_unique_id = "JFLActive_Battery"
     async def async_added_to_hass(self):
         """Register callbacks."""
         self.async_on_remove(
@@ -80,6 +80,7 @@ class JFLActiveSiren(SirenEntity):
     _attr_icon = "mdi:alarm-bell"
     _attr_name = "Alarm Panel Siren A"
     _attr_should_poll = True
+    _attr_unique_id = "JFLActive_SIREN"
     _attr_supported_features = (
             SirenEntityFeature.TURN_ON | SirenEntityFeature.TURN_OFF
     )
