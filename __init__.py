@@ -207,6 +207,7 @@ class JFLWatcher(threading.Thread):
 
     def run(self):
         """Open a connection to JFL Active."""
+        device_registry = dr.async_get(self.hass)
         _LOGGER.warn("Starting JFL Integration")
         device = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self) 
@@ -414,6 +415,28 @@ class JFLWatcher(threading.Thread):
                               elif 'A7' in f'{data[41]:0>2X}':
                                  MODELO = 'Active 20'
                               self.CONF_MODELO = MODELO
+                              MAC=data[29:41].decode("utf-8")
+                              NS = data[4:14].decode('ascii')
+                              device_entry = device_registry.async_get_device(
+                                  identifiers=set()
+                              )
+                              if device_entry:
+                                 _LOGGER.war("Found device using connections: %s, device_entry: %s", connections, device_entry, )
+                              if not device_entry:
+                                 # No device found, create new device entry.
+                                 device_registry.async_get_or_create(
+                                  config_entry_id=self.hass.data[DOMAIN][entry.entry_id],
+                                  connections={(dr.CONNECTION_NETWORK_MAC, MAC)},
+                                  identifiers={(DOMAIN, NS)},
+                                  manufacturer="JFL",
+                                  name="JFL Active",
+                                  model=MODELO,
+                                 )
+                                 _LOGGER.warn("Created device using  '%s', device_entry: %s", MAC, NS )
+                              else:
+                                 # Update identifier.
+                                 device_entry = device_registry.async_update_device(device_entry.id,new_identifiers={(DOMAIN, NS)}, )
+                                 _LOGGER.warn("Update evice using  '%s', device_entry: %s", self.MAC, device_entry )..
                               ####Status######
                               #_LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
                               #_LOGGER.warn("Total de particoes  %s", f'{data[51]:0>2X}')
