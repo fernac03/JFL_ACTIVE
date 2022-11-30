@@ -436,7 +436,7 @@ class JFLWatcher(threading.Thread):
                               else:
                                  # Update identifier.
                                  device_entry = device_registry.async_update_device(device_entry.id,new_identifiers={(DOMAIN, NS)}, )
-                                 _LOGGER.warn("Update evice using  '%s', device_entry: %s", self.MAC, device_entry )..
+                                 _LOGGER.warn("Update evice using  '%s', device_entry: %s", self.MAC, device_entry )
                               ####Status######
                               #_LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
                               #_LOGGER.warn("Total de particoes  %s", f'{data[51]:0>2X}')
