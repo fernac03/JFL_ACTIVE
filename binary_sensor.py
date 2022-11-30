@@ -84,6 +84,7 @@ class AlarmDecoderBinarySensor(BinarySensorEntity):
         self._relay_addr = relay_addr
         self._relay_chan = relay_chan
         self._attr_device_class = zone_type
+        self._attr_unique_id = "JFLActive_Zone_"+str(self._zone_number)
         self._attr_extra_state_attributes = {
             CONF_ZONE_NUMBER: self._zone_number,
         }
