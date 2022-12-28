@@ -51,7 +51,7 @@ async def async_setup_entry(
         zone_loop = zone_info.get(CONF_ZONE_LOOP)
         relay_addr = zone_info.get(CONF_RELAY_ADDR)
         relay_chan = zone_info.get(CONF_RELAY_CHAN)
-        entity = AlarmDecoderBinarySensor(
+        entity = JflBinarySensor(
             zone_num, zone_name, zone_type, zone_rfid, zone_loop, relay_addr, relay_chan
         )
         entities.append(entity)
@@ -59,7 +59,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class AlarmDecoderBinarySensor(BinarySensorEntity):
+class JflBinarySensor(BinarySensorEntity):
     """Representation of an JFL Active binary sensor."""
 
     _attr_should_poll = False

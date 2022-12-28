@@ -49,7 +49,6 @@ class JFLActiveSensor(SensorEntity):
         if self._attr_native_value != message.text:
             self._attr_native_value = message.text
             self.schedule_update_ha_state()
-
 class JFLActiveBattery(SensorEntity):
     """Representation of an JFL Active Batery."""
     
@@ -76,6 +75,7 @@ class JFLActiveBattery(SensorEntity):
             self.schedule_update_ha_state()
 
 class JFLActiveSiren(SirenEntity):
+
     """Representation of an JFL Active Siren."""
     _attr_icon = "mdi:alarm-bell"
     _attr_name = "Alarm Panel Siren A"
@@ -107,3 +107,24 @@ class JFLActiveSiren(SirenEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
         await self.call_state_change(False)
+
+
+class JFLActiveEletricFecnce(SensorEntity):
+    """Representation of an JFL Active Eletric Fence."""
+
+    _attr_icon = "mdi:flash"
+    _attr_name = "Eletric Fence"
+    _attr_should_poll = False
+    _attr_unique_id = "JFLActive_EletricFence"
+    async def async_added_to_hass(self):
+        """Register callbacks."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_PANEL_MESSAGE, self._message_callback
+            )
+        )
+
+    def _message_callback(self, message):
+        if self._attr_native_value != message.text:
+            self._attr_native_value = message.text
+            self.schedule_update_ha_state()
