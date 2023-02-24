@@ -315,15 +315,20 @@ class JFLWatcher(threading.Thread):
            while True:  
              conn, addr = s.accept()
              sequencial=1
+             elapsed=time.time()
              with conn:
                  _LOGGER.warn("Connected by %s",addr)
                  self.text = "Connected"
                  t=time.time()
                  while True:
+                     if (time.time() - elapsed) >180:
+                        #_LOGGER.warn("inicio do loop conectado  tempo: %s", time.time() - elapsed )
+                        #_LOGGER.warn("fim to tempo de conexao")
+                        conn.close()
+                        break
                      sequencial += 1  
                      if sequencial > 256:
                         sequencual=1
-                     elapsed = 0
                      if not queue1.empty():
                         val = queue1.get()
                         sent = conn.send(val)
@@ -340,6 +345,8 @@ class JFLWatcher(threading.Thread):
                       break
                      else:
                       if len(data) == 0:
+                        _LOGGER.warn('timeout lendata 0')
+                        conn.close()
                         break
                       else:
                         ##_LOGGER.info("dentro da conexao recebido %s" %(data))
@@ -351,6 +358,7 @@ class JFLWatcher(threading.Thread):
                             message += check.to_bytes(1,'big')
                             #_LOGGER.warn('Send Keep')
                             #_LOGGER.warn(message)
+                            elapsed=time.time()
                             conn.send(bytes(message))
                         if len(data)==102:
                             #_LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
@@ -373,9 +381,16 @@ class JFLWatcher(threading.Thread):
                             self.CONF_MODELO = MODELO
                             MAC=data[29:41].decode("utf-8")
                             NS = data[4:14].decode('ascii')
+                            dispatcher_send(self.hass, CONF_MODELO, MODELO)    
                             ####Status######
                             _LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
                             _LOGGER.warn("Total de particoes  %s", f'{data[51]:0>2X}')
+                            _LOGGER.warn("###############  PART %s ", CONF_PARTITION)
+                            if '01' in f'{data[51]:0>2X}':
+                               self.CONF_PARTITION=False
+                            else:
+                               self.CONF_PARTITION=True
+                            dispatcher_send(self.hass, CONF_PARTITION, CONF_PARTITION)    
                             #_LOGGER.warn("Conta  %s", f'{data[52]:0>2X}')
                             #_LOGGER.warn("Conta  %s", f'{data[53]:0>2X}')
                             #_LOGGER.warn("Eletrificador   %s", f'{data[54]:0>2X}')
@@ -383,7 +398,7 @@ class JFLWatcher(threading.Thread):
                               Part=i+1
                               #_LOGGER.warn("###############  PART %s Status %s", Part,f'{data[85+i]:0>2X}')
                               self.setPartitionStatus(Part,f'{data[85+i]:0>2X}')  
-                            dispatcher_send(self.hass, CONF_MODELO, MODELO)    
+                            
                             message = b'\x7B\7\x01\x21\x01\x01'
                             check = self.checksum(message)
                             message += check.to_bytes(1,'big')
@@ -394,6 +409,7 @@ class JFLWatcher(threading.Thread):
                             check = self.checksum(message)
                             message += check.to_bytes(1,'big')
                             _LOGGER.warn('Envia pedido de Status')
+                            elapsed=time.time()
                             conn.send(bytes(message))
                         if len(data) ==24:
                            evento = data[8:12].decode('ascii')
@@ -439,8 +455,8 @@ class JFLWatcher(threading.Thread):
                            check = self.checksum(message)
                            message += check.to_bytes(1,'big')
                            _LOGGER.warn('Send ACK ')
+                           elapsed=time.time()
                            conn.send(bytes(message))
-                           
                         if len(data) == 118:
                            if data[12]/14 > 12.5:
                               #_LOGGER.warn("Bateria  Normal")
@@ -473,14 +489,13 @@ class JFLWatcher(threading.Thread):
                                      #_LOGGER.warn("###############  Zona %s Status %s", zona,low)
                                      self.setZoneStatus(zona,low)
                                      zona +=1
-                      if time.time()-t>20:
-                         t=time.time()
-                         message = b'\x7b\5\x01\x4d'
-                         check = self.checksum(message)
-                         message += check.to_bytes(1,'big')
-                         conn.send(bytes(message))
-                         _LOGGER.warn("Envia pedido de statud  apos tempo")
-                       
-                      dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
- 
-        
+                           elapsed=time.time()          
+                        if (time.time() - t) >50:
+                           t=time.time()
+                           message = b'\x7b\5\x01\x4d'
+                           check = self.checksum(message)
+                           message += check.to_bytes(1,'big')
+                           conn.send(bytes(message))
+                           _LOGGER.warn("Envia pedido de status  apos tempo")
+              
+             _LOGGER.warn("fim do loop while true")

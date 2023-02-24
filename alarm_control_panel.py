@@ -145,6 +145,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send disarm command."""
         if not self._validate_code(code, STATE_ALARM_DISARMED):
             return
+        _LOGGER.warn("Desarme quantas Particoes  %s",CONF_PARTITION)
         if CONF_PARTITION:
            #message = b'\xb3\x36\x02\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4f\x01'
@@ -168,7 +169,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send arm away command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_AWAY):
             return
-
+        _LOGGER.warn("arme away quantas Particoes  %s",CONF_PARTITION)
         if CONF_PARTITION:
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
@@ -181,7 +182,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
-           _LOGGER.warning("enviando arme away")
+           _LOGGER.warn("enviando arme away")
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
@@ -193,6 +194,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send arm home command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
             return
+        _LOGGER.warn("arme home quantas Particoes  %s",CONF_PARTITION)    
         if CONF_PARTITION:
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
@@ -200,7 +202,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
-           _LOGGER.warning("enviando arme home")
+           _LOGGER.warn("enviando arme home")
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
@@ -213,7 +215,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send arm night command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
             return
-        
+        _LOGGER.warn("arme night quantas Particoes  %s",CONF_PARTITION)
         if CONF_PARTITION:
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
@@ -226,7 +228,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
-           _LOGGER.warning("enviando arme night")
+           _LOGGER.warn("enviando arme night")
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
@@ -256,5 +258,5 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
             )
         check = not alarm_code or code == alarm_code
         if not check:
-            _LOGGER.warning("Invalid code given for %s", state)
+            _LOGGER.warn("Invalid code given for %s", state)
         return check
