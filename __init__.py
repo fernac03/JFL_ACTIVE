@@ -351,7 +351,7 @@ class JFLWatcher(threading.Thread):
                       else:
                         ##_LOGGER.info("dentro da conexao recebido %s" %(data))
                         ####evento
-                        #_LOGGER.warn("tamanho do Pacote 00 %s",len(data))
+                        _LOGGER.warn("tamanho do Pacote 00 %s",len(data))
                         if len(data)==5:
                             message = b'\x7B\6\x01\x40\x01'
                             check = self.checksum(message)
@@ -381,16 +381,16 @@ class JFLWatcher(threading.Thread):
                             self.CONF_MODELO = MODELO
                             MAC=data[29:41].decode("utf-8")
                             NS = data[4:14].decode('ascii')
-                            dispatcher_send(self.hass, CONF_MODELO, MODELO)    
+                            dispatcher_send(self.hass, self.CONF_MODELO, MODELO)    
                             ####Status######
                             _LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
                             _LOGGER.warn("Total de particoes  %s", f'{data[51]:0>2X}')
-                            _LOGGER.warn("###############  PART %s ", CONF_PARTITION)
                             if '01' in f'{data[51]:0>2X}':
                                self.CONF_PARTITION=False
                             else:
                                self.CONF_PARTITION=True
-                            dispatcher_send(self.hass, CONF_PARTITION, CONF_PARTITION)    
+                            dispatcher_send(self.hass, self.CONF_PARTITION, self.CONF_PARTITION)    
+                            _LOGGER.warn("###############  PART %s ", self.CONF_PARTITION)
                             #_LOGGER.warn("Conta  %s", f'{data[52]:0>2X}')
                             #_LOGGER.warn("Conta  %s", f'{data[53]:0>2X}')
                             #_LOGGER.warn("Eletrificador   %s", f'{data[54]:0>2X}')
@@ -420,7 +420,6 @@ class JFLWatcher(threading.Thread):
                               self._attr_state = STATE_ALARM_ARMED_HOME
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == '1401' or evento =='1407' or evento =='1403' or evento=='1409':
-                              _LOGGER.warn("Evento  %s", evento)
                               self.armed_home =False
                               self.armed_away =False
                               self.armed_night =False
@@ -482,20 +481,22 @@ class JFLWatcher(threading.Thread):
                                high, low = data[31+i] >>4, data[31+i] & 0x0F
                                for x in range(1,3):
                                   if x ==1:
-                                     #_LOGGER.warn("###############  Zona %s Status %s", zona,high)
+                                     _LOGGER.warn("###############  Zona %s Status %s", zona,high)
                                      self.setZoneStatus(zona,high)
                                      zona += 1  
                                   else:
-                                     #_LOGGER.warn("###############  Zona %s Status %s", zona,low)
+                                     _LOGGER.warn("###############  Zona %s Status %s", zona,low)
                                      self.setZoneStatus(zona,low)
                                      zona +=1
-                           elapsed=time.time()          
+                           elapsed=time.time()
+                        message = b'\x7B\6\x00\xAE\x93'
+                        check = self.checksum(message)
+                        message += check.to_bytes(1,'big')                             
                         if (time.time() - t) >50:
                            t=time.time()
                            message = b'\x7b\5\x01\x4d'
                            check = self.checksum(message)
                            message += check.to_bytes(1,'big')
                            conn.send(bytes(message))
-                           _LOGGER.warn("Envia pedido de status  apos tempo")
               
              _LOGGER.warn("fim do loop while true")
