@@ -123,9 +123,9 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         else:
            self._attr_state = STATE_ALARM_DISARMED
            #_LOGGER.warn("mensagem disarmed")
-        if message.CONF_PARTITION
+        if message.CONF_PARTITION:
            self.CONF_PARTITION=True
-        else 
+        else: 
            self.CONF_PARTITION=False
            
         self._attr_extra_state_attributes = {
