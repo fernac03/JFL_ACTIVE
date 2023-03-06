@@ -28,6 +28,10 @@ async def async_setup_entry(
     async_add_entities([entity])
     entity = JFLActiveSiren()
     async_add_entities([entity])
+    entity = JFLActivePartition()
+    async_add_entities([entity])
+    entity = JFLActiveEletricFecnce()
+    async_add_entities([entity])
 
 
 class JFLActiveSensor(SensorEntity):
@@ -108,7 +112,29 @@ class JFLActiveSiren(SirenEntity):
         """Turn the entity off."""
         await self.call_state_change(False)
 
+class JFLActivePartition(SensorEntity):
+    """Representation of an JFL Active Eletric Fence."""
 
+    _attr_icon = "mdi:collage"
+    _attr_name = "Partition"
+    _attr_should_poll = False
+    _attr_unique_id = "JFLActive_Partition"
+    async def async_added_to_hass(self):
+        """Register callbacks."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_PANEL_MESSAGE, self._message_callback
+            )
+        )
+
+    def _message_callback(self, message):
+        if message.CONF_PARTITION:
+            self._attr_native_value = True
+            self.schedule_update_ha_state()
+        else:
+            self._attr_native_value = False
+            self.schedule_update_ha_state()
+            
 class JFLActiveEletricFecnce(SensorEntity):
     """Representation of an JFL Active Eletric Fence."""
 

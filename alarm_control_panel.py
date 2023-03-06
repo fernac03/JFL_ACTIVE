@@ -27,6 +27,7 @@ from .const import (
     CONF_ALT_NIGHT_MODE,
     CONF_AUTO_BYPASS,
     CONF_PARTITION,
+    CONF_MODELO,
     CONF_CODE_REQUIRED,
     CONF_CODE_ARM_REQUIRED,
     DATA_AD,
@@ -122,8 +123,13 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         else:
            self._attr_state = STATE_ALARM_DISARMED
            #_LOGGER.warn("mensagem disarmed")
-
+        if message.CONF_PARTITION
+           self.CONF_PARTITION=True
+        else 
+           self.CONF_PARTITION=False
+           
         self._attr_extra_state_attributes = {
+            "particao": message.CONF_PARTITION,
             "ac_power": message.ac_power,
             "alarm_event_occurred": message.alarm_event_occurred,
             "backlight_on": message.backlight_on,
