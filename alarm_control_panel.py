@@ -98,6 +98,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         self._auto_bypass = auto_bypass
         self._attr_code_arm_required = code_arm_required
         self._alt_night_mode = alt_night_mode
+        self.CONF_PARTITION = False
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
@@ -124,9 +125,11 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            self._attr_state = STATE_ALARM_DISARMED
            #_LOGGER.warn("mensagem disarmed")
         if message.CONF_PARTITION:
-           self.CONF_PARTITION=True
+           #_LOGGER.warn("Recebido conf_partition =  %s",message.CONF_PARTITION)
+           self.CONF_PARTITION = True
         else: 
-           self.CONF_PARTITION=False
+           #_LOGGER.warn("nao Recebido conf_partition =  %s",message.CONF_PARTITION)
+           self.CONF_PARTITION = False
            
         self._attr_extra_state_attributes = {
             "particao": message.CONF_PARTITION,
@@ -152,8 +155,8 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send disarm command."""
         if not self._validate_code(code, STATE_ALARM_DISARMED):
             return
-        _LOGGER.warn("Desarme quantas Particoes  %s",CONF_PARTITION)
-        if CONF_PARTITION:
+        #_LOGGER.warn("Desarme quantas Particoes  %s",self.CONF_PARTITION)
+        if self.CONF_PARTITION:
            #message = b'\xb3\x36\x02\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4f\x01'
            check = self.checksum(message)
@@ -176,8 +179,8 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send arm away command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_AWAY):
             return
-        _LOGGER.warn("arme away quantas Particoes  %s",CONF_PARTITION)
-        if CONF_PARTITION:
+        #_LOGGER.warn("arme away quantas Particoes  %s",self.CONF_PARTITION)
+        if self.CONF_PARTITION:
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
@@ -201,8 +204,8 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send arm home command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
             return
-        _LOGGER.warn("arme home quantas Particoes  %s",CONF_PARTITION)    
-        if CONF_PARTITION:
+        #_LOGGER.warn("arme home quantas Particoes  %s",self.CONF_PARTITION)    
+        if self.CONF_PARTITION:
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
@@ -222,8 +225,8 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send arm night command."""
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
             return
-        _LOGGER.warn("arme night quantas Particoes  %s",CONF_PARTITION)
-        if CONF_PARTITION:
+        # _LOGGER.warn("arme night quantas Particoes  %s",self.CONF_PARTITION)
+        if self.CONF_PARTITION:
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)

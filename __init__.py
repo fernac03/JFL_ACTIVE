@@ -383,17 +383,17 @@ class JFLWatcher(threading.Thread):
                             NS = data[4:14].decode('ascii')
                             ####Status######
                             _LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
-                            _LOGGER.warn("Total de particoes  %s", f'{data[51]:0>2X}')
+                            
                             if '01' in f'{data[51]:0>2X}':
-                               self.text = "Particionada"
-                               self.CONF_PARTITION = True
-                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                            else:
-                               self.text = "Sem Particao"
+                               self.text = f'{data[51]:0>2X}'
                                self.CONF_PARTITION = False
                                dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                            else:
+                               self.text = f'{data[51]:0>2X}'
+                               self.CONF_PARTITION = True
+                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                             
-                            _LOGGER.warn("###############  PART %s ", f'{data[51]:0>2X}')
+                            
                             #_LOGGER.warn("Conta  %s", f'{data[52]:0>2X}')
                             #_LOGGER.warn("Conta  %s", f'{data[53]:0>2X}')
                             if '00' in f'{data[54]:0>2X}':
