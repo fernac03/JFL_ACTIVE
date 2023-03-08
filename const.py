@@ -13,6 +13,7 @@ CONF_ZONE_RFID = "zone_rfid"
 CONF_ZONE_TYPE = "zone_type"
 CONF_PARTITION = False
 CONF_MAC_ADDRESS = ""
+CONF_SERIAL_NUMBER= ""
 CONF_MODELO = "Active"
 DATA_AD = "jfl_active"
 DATA_REMOVE_STOP_LISTENER = "rm_stop_listener"
