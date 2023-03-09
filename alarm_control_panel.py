@@ -164,7 +164,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            self._client.put(bytes(message))
            #message = b'\xB3\x36\x02\x02\x00\x00\x00'
            message = b'\x7b\6\x01\x4f\x02'
-           check = slef.checksum(message)
+           check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
