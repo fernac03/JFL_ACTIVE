@@ -151,6 +151,9 @@ class JFLActiveEletricFecnce(SensorEntity):
         )
 
     def _message_callback(self, message):
-        if self._attr_native_value != message.text:
-            self._attr_native_value = message.text
+        if message.eletrificador==True:
+            self._attr_native_value = True
+            self.schedule_update_ha_state()
+        else:
+            self._attr_native_value = False
             self.schedule_update_ha_state()

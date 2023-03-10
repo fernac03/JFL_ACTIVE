@@ -321,9 +321,8 @@ class JFLWatcher(threading.Thread):
                  self.text = "Connected"
                  t=time.time()
                  while True:
+                     #_LOGGER.warn("Inicio loop")
                      if (time.time() - elapsed) >180:
-                        #_LOGGER.warn("inicio do loop conectado  tempo: %s", time.time() - elapsed )
-                        #_LOGGER.warn("fim to tempo de conexao")
                         conn.close()
                         break
                      sequencial += 1  
@@ -349,75 +348,71 @@ class JFLWatcher(threading.Thread):
                         conn.close()
                         break
                       else:
-                        ##_LOGGER.info("dentro da conexao recebido %s" %(data))
-                        ####evento
-                        #_LOGGER.warn("tamanho do Pacote 00 %s",len(data))
                         if len(data)==5:
-                            message = b'\x7B\6\x01\x40\x01'
-                            check = self.checksum(message)
-                            message += check.to_bytes(1,'big')
-                            #_LOGGER.warn('Send Keep')
-                            #_LOGGER.warn(message)
-                            elapsed=time.time()
-                            conn.send(bytes(message))
+                           message = b'\x7B\6\x01\x40\x01'
+                           check = self.checksum(message)
+                           message += check.to_bytes(1,'big')
+                           elapsed=time.time()
+                           conn.send(bytes(message))
                         if len(data)==102:
-                            #_LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
-                            if 'A0' in f'{data[41]:0>2X}':
-                               MODELO = 'Active-32 Duo'
-                            elif 'A1' in f'{data[41]:0>2X}':
-                               MODELO = 'Active 20 Ultra/GPRS'
-                            elif 'A2' in f'{data[41]:0>2X}':
-                               MODELO = 'Active 8 Ultra'
-                            elif 'A3' in f'{data[41]:0>2X}':
-                               MODELO = 'Active 20 Ethernet'
-                            elif 'A4' in f'{data[41]:0>2X}':
-                               MODELO = 'Active 100 Bus'
-                            elif 'A5' in f'{data[41]:0>2X}':
-                               MODELO = 'Active 20 Bus'
-                            elif 'A6' in f'{data[41]:0>2X}':
-                               MODELO = 'Active Full 32'
-                            elif 'A7' in f'{data[41]:0>2X}':
-                               MODELO = 'Active 20'
-                            self.CONF_MODELO = MODELO
-                            MAC=data[29:41].decode("utf-8")
-                            NS = data[4:14].decode('ascii')
-                            ####Status######
-                            _LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
-                            
-                            if '01' in f'{data[51]:0>2X}':
-                               self.text = f'{data[51]:0>2X}'
-                               self.CONF_PARTITION = False
-                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                            else:
-                               self.text = f'{data[51]:0>2X}'
-                               self.CONF_PARTITION = True
-                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                            
-                            
-                            #_LOGGER.warn("Conta  %s", f'{data[52]:0>2X}')
-                            #_LOGGER.warn("Conta  %s", f'{data[53]:0>2X}')
-                            if '00' in f'{data[54]:0>2X}':
-                               self.eletrificador=False
-                            else:
-                               self.eletrificador=True
-                               _LOGGER.warn("pacote com 102 Eletrificador   %s", f'{data[54]:0>2X}')
-                            for i in range(16):
-                              Part=i+1
-                              #_LOGGER.warn("###############  PART %s Status %s", Part,f'{data[85+i]:0>2X}')
-                              self.setPartitionStatus(Part,f'{data[85+i]:0>2X}')  
-                            
-                            message = b'\x7B\7\x01\x21\x01\x01'
-                            check = self.checksum(message)
-                            message += check.to_bytes(1,'big')
-                            #_LOGGER.warn('Send Accept')
-                            conn.send(bytes(message))
-                            ##envia pedido de Status
-                            message = b'\x7b\5\x00\x93'
-                            check = self.checksum(message)
-                            message += check.to_bytes(1,'big')
-                            _LOGGER.warn('Envia pedido de Status')
-                            elapsed=time.time()
-                            conn.send(bytes(message))
+                           #_LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
+                           if 'A0' in f'{data[41]:0>2X}':
+                              MODELO = 'Active-32 Duo'
+                           elif 'A1' in f'{data[41]:0>2X}':
+                              MODELO = 'Active 20 Ultra/GPRS'
+                           elif 'A2' in f'{data[41]:0>2X}':
+                              MODELO = 'Active 8 Ultra'
+                           elif 'A3' in f'{data[41]:0>2X}':
+                              MODELO = 'Active 20 Ethernet'
+                           elif 'A4' in f'{data[41]:0>2X}':
+                              MODELO = 'Active 100 Bus'
+                           elif 'A5' in f'{data[41]:0>2X}':
+                              MODELO = 'Active 20 Bus'
+                           elif 'A6' in f'{data[41]:0>2X}':
+                              MODELO = 'Active Full 32'
+                           elif 'A7' in f'{data[41]:0>2X}':
+                              MODELO = 'Active 20'
+                           self.CONF_MODELO = MODELO
+                           MAC=data[29:41].decode("utf-8")
+                           NS = data[4:14].decode('ascii')
+                           ####Status######
+                           _LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
+                           
+                           if '01' in f'{data[51]:0>2X}':
+                              self.text = f'{data[51]:0>2X}'
+                              self.CONF_PARTITION = False
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           else:
+                              self.text = f'{data[51]:0>2X}'
+                              self.CONF_PARTITION = True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                           
+                           
+                           #_LOGGER.warn("Conta  %s", f'{data[52]:0>2X}')
+                           #_LOGGER.warn("Conta  %s", f'{data[53]:0>2X}')
+                           if '00' in f'{data[54]:0>2X}':
+                              self.eletrificador=False
+                           else:
+                              self.eletrificador=True
+                              _LOGGER.warn("pacote com 102 Eletrificador   %s", f'{data[54]:0>2X}')
+                           for i in range(16):
+                             Part=i+1
+                             #_LOGGER.warn("###############  PART %s Status %s", Part,f'{data[85+i]:0>2X}')
+                             self.setPartitionStatus(Part,f'{data[85+i]:0>2X}')  
+                           
+                           message = b'\x7B\7\x01\x21\x01\x01'
+                           check = self.checksum(message)
+                           message += check.to_bytes(1,'big')
+                           conn.send(bytes(message))
+                           ##envia pedido de Status
+                           #message = b'\x7b\5\x01\x93'
+                           #message = b'\x7b\5\x01\x4d'
+                           #check = self.checksum(message)
+                           #message += check.to_bytes(1,'big')
+                           #conn.send(bytes(message))
+                           #_LOGGER.warn('Envia pedido de Status')
+                           elapsed=time.time()
+                           
                         if len(data) ==24:
                            evento = data[8:12].decode('ascii')
                            if evento == '3401' or evento == '3407' or evento =='3403' or evento =='3404' or evento =='3408' or evento=='3409' or evento=='3441':
@@ -464,6 +459,7 @@ class JFLWatcher(threading.Thread):
                            elapsed=time.time()
                            conn.send(bytes(message))
                         if len(data) == 118:
+                           _LOGGER.warn("pacote 118")
                            if data[12]/14 > 12.5:
                               #_LOGGER.warn("Bateria  Normal")
                               self.text = "Bateria Normal"
@@ -502,9 +498,12 @@ class JFLWatcher(threading.Thread):
                            elapsed=time.time()
                         if len(data) >120: 
                            _LOGGER.info("pacote maior que 118 %s" %(data))                         
-                        message = b'\x7B\5\x00\x93'
+                        #message = b'\x7B\5\x01\x93'
+                        message = b'\x7B\5\x01\x4D'
                         check = self.checksum(message)
                         message += check.to_bytes(1,'big')                             
+                        conn.send(bytes(message))
+                        #_LOGGER.warn("pedido de status")                         
                         if (time.time() - t) >50:
                            t=time.time()
                            message = b'\x7b\5\x01\x4d'
