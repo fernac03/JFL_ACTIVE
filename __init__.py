@@ -303,7 +303,7 @@ class JFLWatcher(threading.Thread):
                             elapsed=time.time()
                             conn.send(bytes(message))
                         if len(data)==102:
-                            #_LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
+                            _LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
                             if 'A0' in f'{data[41]:0>2X}':
                                MODELO = 'Active-32 Duo'
                             elif 'A1' in f'{data[41]:0>2X}':
@@ -359,8 +359,7 @@ class JFLWatcher(threading.Thread):
                             #_LOGGER.warn('Send Accept')
                             conn.send(bytes(message))
                             ##envia pedido de Status
-                            #message = b'\x7b\5\x01\x4d'
-                            message = b'\x7b\5\x01\x93'
+                            message = b'\x7b\5\x01\x4d'
                             check = self.checksum(message)
                             message += check.to_bytes(1,'big')
                             _LOGGER.warn('Envia pedido de Status')
@@ -455,14 +454,14 @@ class JFLWatcher(threading.Thread):
                            elapsed=time.time() 
                         if len(data) >120: 
                            _LOGGER.info("pacote maior que 118 %s" %(data))  
-                        #message = b'\x7B\5\x01\x4D'
-                        #check = self.checksum(message)
-                        #message += check.to_bytes(1,'big')                             
-                        #conn.send(bytes(message))   
-                        if (time.time() - t) >50:
+                        
+                        message = b'\x7B\5\x01\x4D'
+                        check = self.checksum(message)
+                        message += check.to_bytes(1,'big')                             
+                        conn.send(bytes(message))   
+                        if (time.time() - t) >25:
                            t=time.time()
-                           #message = b'\x7B\5\x01\x4D'
-                           message = b'\x7B\5\x01\x93'
+                           message = b'\x7b\5\x01\x4d'
                            check = self.checksum(message)
                            message += check.to_bytes(1,'big')
                            conn.send(bytes(message))
