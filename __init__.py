@@ -458,8 +458,8 @@ class JFLWatcher(threading.Thread):
                         message = b'\x7B\5\x01\x4D'
                         check = self.checksum(message)
                         message += check.to_bytes(1,'big')                             
-                        conn.send(bytes(message))   
-                        if (time.time() - t) >25:
+                        #conn.send(bytes(message))   
+                        if (time.time() - t) >35:
                            t=time.time()
                            message = b'\x7b\5\x01\x4d'
                            check = self.checksum(message)
