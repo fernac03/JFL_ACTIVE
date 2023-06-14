@@ -276,6 +276,8 @@ class JFLWatcher(threading.Thread):
                      if not queue1.empty():
                         val = queue1.get()
                         sent = conn.send(val)
+                     else:
+                       val = 0
                      conn.settimeout(2)
                      try:
                        data = conn.recv(255)
@@ -325,6 +327,7 @@ class JFLWatcher(threading.Thread):
                             NS = data[4:14].decode('ascii')
                             dispatcher_send(self.hass, CONF_MODELO, MODELO)    
                             ####Status######
+                            _LOGGER.warn("Modelo da central  %s", MODELO)
                             _LOGGER.warn("Problema da central  %s", f'{data[50]:0>2X}')
                             _LOGGER.warn("Total de particoes  %s", f'{data[51]:0>2X}')
                             _LOGGER.warn("###############  PART %s ", CONF_PARTITION)
@@ -457,8 +460,9 @@ class JFLWatcher(threading.Thread):
                         
                         message = b'\x7B\5\x01\x4D'
                         check = self.checksum(message)
-                        message += check.to_bytes(1,'big')                             
-                        #conn.send(bytes(message))   
+                        message += check.to_bytes(1,'big')
+                        if val==0:
+                           conn.send(bytes(message)) 
                         if (time.time() - t) >35:
                            t=time.time()
                            message = b'\x7b\5\x01\x4d'
