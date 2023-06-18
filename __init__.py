@@ -273,11 +273,16 @@ class JFLWatcher(threading.Thread):
                      sequencial += 1  
                      if sequencial > 256:
                         sequencual=1
+                      
                      if not queue1.empty():
                         val = queue1.get()
                         sent = conn.send(val)
-                     else:
-                       val = 0
+                     _LOGGER.warn("sequencial: %s", hex(sequencial))
+                     if sequencial % 5 ==0:
+                        message = b'\x7B\5\x02\x4D'
+                        check = self.checksum(message)
+                        message += check.to_bytes(1,'big')
+                        conn.send(bytes(message))
                      conn.settimeout(2)
                      try:
                        data = conn.recv(255)
@@ -458,11 +463,11 @@ class JFLWatcher(threading.Thread):
                         if len(data) >120: 
                            _LOGGER.info("pacote maior que 118 %s" %(data))  
                         
-                        message = b'\x7B\5\x01\x4D'
-                        check = self.checksum(message)
-                        message += check.to_bytes(1,'big')
-                        if val==0:
-                           conn.send(bytes(message)) 
+                        #message = b'\x7B\5\x01\x4D'
+                        #check = self.checksum(message)
+                        #message += check.to_bytes(1,'big')
+                        #if val==0:
+                        #   conn.send(bytes(message)) 
                         if (time.time() - t) >35:
                            t=time.time()
                            message = b'\x7b\5\x01\x4d'
