@@ -271,13 +271,12 @@ class JFLWatcher(threading.Thread):
                         conn.close()
                         break
                      sequencial += 1  
-                     if sequencial > 256:
-                        sequencual=1
+                     if sequencial > 255:
+                        sequencial=1
                       
                      if not queue1.empty():
                         val = queue1.get()
                         sent = conn.send(val)
-                     _LOGGER.warn("sequencial: %s", hex(sequencial))
                      if sequencial % 5 ==0:
                         message = b'\x7B\5\x02\x4D'
                         check = self.checksum(message)
@@ -302,7 +301,7 @@ class JFLWatcher(threading.Thread):
                       else:
                         ##_LOGGER.info("dentro da conexao recebido %s" %(data))
                         ####evento
-                        _LOGGER.warn("tamanho do Pacote %s",len(data))
+                        #_LOGGER.warn("tamanho do Pacote %s",len(data))
                         if len(data)==5:
                             message = b'\x7B\6\x01\x40\x01'
                             check = self.checksum(message)
@@ -310,7 +309,7 @@ class JFLWatcher(threading.Thread):
                             elapsed=time.time()
                             conn.send(bytes(message))
                         if len(data)==102:
-                            _LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
+                            #_LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
                             if 'A0' in f'{data[41]:0>2X}':
                                MODELO = 'Active-32 Duo'
                             elif 'A1' in f'{data[41]:0>2X}':
@@ -355,7 +354,7 @@ class JFLWatcher(threading.Thread):
                             else:
                               self.eletrificador=True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
-                            _LOGGER.warn("pacote com 102 Eletrificador   %s", f'{data[54]:0>2X}')
+                            #_LOGGER.warn("pacote com 102 Eletrificador   %s", f'{data[54]:0>2X}')
                             for i in range(16):
                               Part=i+1
                               #_LOGGER.warn("###############  PART %s Status %s", Part,f'{data[85+i]:0>2X}')
@@ -443,7 +442,7 @@ class JFLWatcher(threading.Thread):
                               self.eletrificador=False
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            else:
-                              _LOGGER.warn("pacote com 118 Eletrificador %s", f'{data[30]:0>2X}')
+                              #_LOGGER.warn("pacote com 118 Eletrificador %s", f'{data[30]:0>2X}')
                               self.eletrificador=True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            #### Status das zonas
