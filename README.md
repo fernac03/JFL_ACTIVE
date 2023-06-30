@@ -4,15 +4,22 @@ Integração com o Home Assistant para as centrais de alarme JFL da linha Active
 
 # Centrais  Suportadas  pela  Integração 
 
-Modelo             Placa       Versao fo Firmware
-Active 8 Ultra     PCI-327      A partir de 6.0
-Active 20 Ultra    PCI-327      A partir de 6.0
-Active 20 Ethernet PCI-340      A partir de 6.0
-Active 20 Bus      PCI-358      Todas
-Active 32 Duo      PCI-356      A partir de 5.0
-Active 100 Bus     PCI-350      Todas
-Active Full 32     PCI-444      Todas
-Active 20          PCI-325      Todas
+Active 8 Ultra     Placa:PCI-327  Firmare: A partir de 6.0
+
+Active 20 Ultra    Placa:PCI-327  Firmare: A partir de 6.0
+
+Active 20 Ethernet Placa:PCI-340      Firmare:A partir de 6.0
+
+Active 20 Bus      Placa:PCI-358      Firmare:Todas
+
+Active 32 Duo      Placa:PCI-356      Firmare:A partir de 5.0
+
+Active 100 Bus     Placa:PCI-350      Firmare:Todas
+
+Active Full 32     Placa:PCI-444      Firmare:Todas
+
+Active 20          Placa:PCI-325      Firmare:Todas
+
 # DIFERENÇAS BÁSICAS DOS MODELOS DE CENTRAIS DE ALARME
 
  Active 8 Ultra:
