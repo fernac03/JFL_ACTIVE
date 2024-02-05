@@ -326,6 +326,12 @@ class JFLWatcher(threading.Thread):
                                MODELO = 'Active Full 32'
                             elif 'A7' in f'{data[41]:0>2X}':
                                MODELO = 'Active 20'
+                            elif 'A8' in f'{data[41]:0>2X}':
+                               MODELO = 'Active 8W'
+                            elif '4B' in f'{data[41]:0>2X}':
+                               MODELO = 'M-300+'
+                            elif '5D' in f'{data[41]:0>2X}':
+                               MODELO = 'm-300 Flex'
                             self.CONF_MODELO = MODELO
                             MAC=data[29:41].decode("utf-8")
                             NS = data[4:14].decode('ascii')
