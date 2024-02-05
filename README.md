@@ -20,6 +20,13 @@ Active Full 32     Placa:PCI-444      Firmare:Todas
 
 Active 20          Placa:PCI-325      Firmare:Todas
 
+Active 8W          Placa:Todas        Firmare:Todas
+
+
+# Modulos
+M-300+            Placa:Todas        Firmare:Todas
+M-300 Flex        Placa:Todas        Firmare:Todas
+
 # DIFERENÇAS BÁSICAS DOS MODELOS DE CENTRAIS DE ALARME
 
  Active 8 Ultra:
@@ -63,6 +70,20 @@ Active 20:
 • 32 Zonas.
 • 4 PGM.
 • Controle de eletrificador
+
+Active 8W:
+ • 2 Partições.
+ • 32 Zonas.
+ • 4 PGM.
+ • Controle de eletrificador.
+
+M-300 +:
+ • 2 PGM.
+ • 2 Entradas.
+
+M-300 Flex:
+ • 2 PGM.
+ • 2 Entradas.
 
 ## Instalação via HACS
 
