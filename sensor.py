@@ -99,10 +99,10 @@ class JFLActiveSiren(SirenEntity):
     def _message_callback(self, message):
         if message.alarm_sounding:
             self._attr_is_on = True
-            self.async_write_ha_state()
+            self.schedule_update_ha_state() 
         else:
             self._attr_is_on = False
-            self.async_write_ha_state()
+            self.schedule_update_ha_state() 
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the entity on."""
