@@ -440,7 +440,7 @@ class JFLWatcher(threading.Thread):
                            ### status das particoes
                            for i in range(16):
                               Part=i+1
-                              #_LOGGER.warn("###############  PART %s Status %s", Part,f'{data[13+i]:0>2X}')
+                              _LOGGER.debug("###############  PART %s Status %s", Part,f'{data[13+i]:0>2X}')
                               self.setPartitionStatus(Part,f'{data[13+i]:0>2X}')
                            ### Status eletrificador
                            #_LOGGER.warn("Eletrificador %s", f'{data[30]:0>2X}')
@@ -448,7 +448,7 @@ class JFLWatcher(threading.Thread):
                               self.eletrificador=False
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            else:
-                              #_LOGGER.warn("pacote com 118 Eletrificador %s", f'{data[30]:0>2X}')
+                              _LOGGER.debug("pacote com 118 Eletrificador %s", f'{data[30]:0>2X}')
                               self.eletrificador=True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            #### Status das zonas
@@ -457,11 +457,11 @@ class JFLWatcher(threading.Thread):
                                high, low = data[31+i] >>4, data[31+i] & 0x0F
                                for x in range(1,3):
                                   if x ==1:
-                                     #_LOGGER.warn("###############  Zona %s Status %s", zona,high)
+                                     _LOGGER.debug("###############  Zona %s Status %s", zona,high)
                                      self.setZoneStatus(zona,high)
                                      zona += 1  
                                   else:
-                                     #_LOGGER.warn("###############  Zona %s Status %s", zona,low)
+                                     _LOGGER.debug("###############  Zona %s Status %s", zona,low)
                                      self.setZoneStatus(zona,low)
                                      zona +=1
                            elapsed=time.time() 
