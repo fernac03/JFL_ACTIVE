@@ -424,7 +424,7 @@ class JFLWatcher(threading.Thread):
                            _LOGGER.warn('Send ACK ')
                            elapsed=time.time()
                            conn.send(bytes(message))
-                        if len(data) == 118:
+                        if len(data) >= 118:
                            #_LOGGER.warn("pacote 118")
                            if data[12]/14 > 12.5:
                               #_LOGGER.warn("Bateria  Normal")
@@ -436,7 +436,7 @@ class JFLWatcher(threading.Thread):
                               #_LOGGER.warn("Bateria Baixa")
                               self.battery_low = True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
-                           #_LOGGER.warn("PGM  %s", data[13])
+                           _LOGGER.debug("PGM  %s", data[13])
                            ### status das particoes
                            for i in range(16):
                               Part=i+1
