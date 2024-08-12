@@ -380,11 +380,17 @@ class JFLWatcher(threading.Thread):
                             conn.send(bytes(message))
                         if len(data) ==24:
                            evento = data[8:12].decode('ascii')
-                           if evento == '3401' or evento == '3407' or evento =='3403' or evento =='3404' or evento =='3408' or evento=='3409' or evento=='3441':
+                           if evento == "3441" :
                               self.armed_away = False
                               self.armed_night = False
                               self.armed_home = True
                               self._attr_state = STATE_ALARM_ARMED_HOME
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
+                           if evento == '3401' or evento == '3407' or evento =='3403' or evento =='3404' or evento =='3408' or evento=='3409' :
+                              self.armed_away = False
+                              self.armed_night = False
+                              self.armed_home = True
+                              self._attr_state = STATE_ALARM_ARMED_AWAY
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == '1401' or evento =='1407' or evento =='1403' or evento=='1409':
                               _LOGGER.warn("Evento  %s", evento)
