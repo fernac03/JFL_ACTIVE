@@ -403,7 +403,10 @@ class JFLWatcher(threading.Thread):
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == '1130' and self.armed_home == True:
                               self.fire_alarm=True
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self) 
+                           if evento == '1130' and self.armed_away == True:
+                              self.fire_alarm=True
+                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self) 
                            if evento == '3130':
                               self.fire_alarm=False
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
