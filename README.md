@@ -98,8 +98,9 @@ Copie o conteúdo deste repositório para a pasta `/config/custom_components/jfl
 1. Configure a integração com o ip do HA (não utilize localhost) e porta livre no seu sistema a  central JFL ira se conectar neste ip e porta.
 2. Configure a central para enviar o report via ethernet para o ip e porta que foi configurado a integração
    - Na Active 20 ethernet IP de destino (endereços 702 e 703) e a porta de destino (endereços 706 e 707):
-   - no configurador Active net use a Aba Comunicação
-   - ![image](https://github.com/user-attachments/assets/e4530a65-b5c4-4f9e-a6ea-7347973445e8)
+   - no configurador Active net use a Aba Comunicação e configure o ip do software active Net como sendo o ip do HA  e a porta configurada
+   ![image](https://github.com/user-attachments/assets/5881fba8-20d9-4a24-982b-9d7662d4b31b)
+
 
   - no configurador Mobile vá  em  comunicação -> ip destino 1  coloque o IP do HA e porta destino 1  coloca a porta  cadastrada  
   exemplos: 192.168.1.1  porta 8085
