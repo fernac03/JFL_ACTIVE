@@ -426,7 +426,7 @@ class JFLWatcher(threading.Thread):
                               self.eletrificador=True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                             if evento == '34071:
-                              self.eletrificador=false
+                              self.eletrificador=False
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                             
                            _LOGGER.warn("Eventos=%s", evento)
