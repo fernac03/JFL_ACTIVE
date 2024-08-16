@@ -398,8 +398,8 @@ class JFLWatcher(threading.Thread):
                               self.armed_away =False
                               self.armed_night =False
                               self.alarm_sounding = False
-                              self.eletrificador=False 
                               self.fire_alarm = False
+                              self.eletrificador=False
                               self._attr_state = STATE_ALARM_DISARMED
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == '1130' and self.armed_home == True:
