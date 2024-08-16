@@ -398,6 +398,7 @@ class JFLWatcher(threading.Thread):
                               self.armed_away =False
                               self.armed_night =False
                               self.alarm_sounding = False
+                              self.eletrificador=False 
                               self.fire_alarm = False
                               self._attr_state = STATE_ALARM_DISARMED
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
@@ -422,11 +423,8 @@ class JFLWatcher(threading.Thread):
                            if evento == '3137':
                               self.fire_alarm=False
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)  
-                           if evento == '1407':
-                              self.eletrificador=True
-                              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            if evento == '3407:
-                              self.eletrificador=False
+                              self.eletrificador=True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            LOGGER.warn("Eventos=%s", evento)
                            message = b'\x7b\x0a\x01\x24\x01'
