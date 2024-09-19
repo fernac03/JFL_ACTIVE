@@ -1,6 +1,5 @@
-"""Support for JFL Active alarm control panels. """
+# alarm_panel.py
 from __future__ import annotations
-
 import voluptuous as vol
 import logging
 from homeassistant.components.alarm_control_panel import (
@@ -17,71 +16,34 @@ from homeassistant.const import (
     STATE_ALARM_DISARMED,
     STATE_ALARM_TRIGGERED,
 )
+from homeassistant.components.alarm_control_panel.const import (
+    SUPPORT_ALARM_ARM_AWAY,
+    SUPPORT_ALARM_ARM_HOME,
+    SUPPORT_ALARM_ARM_NIGHT,
+    SUPPORT_ALARM_TRIGGER,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
+from homeassistant.exceptions import ConfigEntryNotReady
 from .const import (
     CONF_ALT_NIGHT_MODE,
     CONF_AUTO_BYPASS,
-    CONF_PARTITION,
-    CONF_MODELO,
     CONF_CODE_REQUIRED,
     CONF_CODE_ARM_REQUIRED,
-    DATA_AD,
     DEFAULT_ARM_OPTIONS,
     DOMAIN,
-    CONF_MODELO,
     OPTIONS_ARM,
     SIGNAL_PANEL_MESSAGE,
 )
 _LOGGER = logging.getLogger(__name__)
-SERVICE_ALARM_TOGGLE_CHIME = "alarm_toggle_chime"
-
-SERVICE_ALARM_KEYPRESS = "alarm_keypress"
-ATTR_KEYPRESS = "keypress"
+SERVICE_ALARM_COMMAND= "alarm_COMMAND"
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-    """Set up for JFL Active alarm panels."""
-    options = entry.options
-    arm_options = options.get(OPTIONS_ARM, DEFAULT_ARM_OPTIONS)
-    client = hass.data[DOMAIN][entry.entry_id][DATA_AD]
 
-    entity = AlarmDecoderAlarmPanel(
-        client=client,
-        auto_bypass=arm_options[CONF_AUTO_BYPASS],
-        code_arm_required=arm_options[CONF_CODE_ARM_REQUIRED],
-        code_required=arm_options[CONF_CODE_REQUIRED],
-        alt_night_mode=arm_options[CONF_ALT_NIGHT_MODE],
-    )
-    async_add_entities([entity])
-
-    platform = entity_platform.async_get_current_platform()
-    platform.async_register_entity_service(
-        SERVICE_ALARM_TOGGLE_CHIME,
-        {
-            vol.Required(ATTR_CODE): cv.string,
-        },
-        "alarm_toggle_chime",
-    )
-
-    platform.async_register_entity_service(
-        SERVICE_ALARM_KEYPRESS,
-        {
-            vol.Required(ATTR_KEYPRESS): cv.string,
-        },
-        "alarm_keypress",
-    )
-
-
-class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
-    """Representation of an JFL Active alarm panel."""
-
+class AlarmPanel(AlarmControlPanelEntity):
     _attr_name = "Alarm Panel"
     _attr_should_poll = False
     _attr_code_format = CodeFormat.NUMBER
@@ -90,16 +52,28 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         | AlarmControlPanelEntityFeature.ARM_AWAY
         | AlarmControlPanelEntityFeature.ARM_NIGHT
     )
-
-    def __init__(self, client, auto_bypass, code_arm_required, alt_night_mode,code_required):
-        """Initialize the alarm panel."""
-        self._client = client
+    def __init__(self, hass, alarm_server, name,auto_bypass,code_arm_required,alt_night_mode,code_required):
+        self._hass = hass
+        self._alarm_server = alarm_server
+        self._name = name
+        self._state = STATE_ALARM_DISARMED
         self._code = code_required
         self._auto_bypass = auto_bypass
         self._attr_code_arm_required = code_arm_required
         self._alt_night_mode = alt_night_mode
-        self.CONF_PARTITION = False
+    
+    @property
+    def name(self):
+        return self._name
 
+    @property
+    def state(self):
+        return self._state
+
+    @property
+    def supported_features(self):
+        return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_ARM_HOME | SUPPORT_ALARM_ARM_NIGHT | SUPPORT_ALARM_TRIGGER
+    
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         self.async_on_remove(
@@ -110,152 +84,62 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
 
     def _message_callback(self, message):
         """Handle received messages."""
+        _LOGGER.warn('##############################message########################')
+        _LOGGER.warn(f'## {message.status_alarm}')
         if message.alarm_sounding or message.fire_alarm:
            self._attr_state = STATE_ALARM_TRIGGERED
+           _LOGGER.warn("disparo de alarme sirene ativada")
         elif message.armed_away:
            self._attr_state = STATE_ALARM_ARMED_AWAY
-           #_LOGGER.warn("mensagem armed_AWAY")
+           _LOGGER.warn("mensagem armed_AWAY")
         elif message.armed_home:
            self._attr_state = STATE_ALARM_ARMED_HOME
-           #_LOGGER.warn("mensagem armed_home")
+           _LOGGER.warn("mensagem armed_home")
         elif message.armed_night:
            self._attr_state = STATE_ALARM_ARMED_NIGHT
-           #_LOGGER.warn("mensagem armed_night")
+           _LOGGER.warn("mensagem armed_night")
         else:
            self._attr_state = STATE_ALARM_DISARMED
-           #_LOGGER.warn("mensagem disarmed")
-        if message.CONF_PARTITION:
-           #_LOGGER.warn("Recebido conf_partition =  %s",message.CONF_PARTITION)
-           self.CONF_PARTITION = True
-        else: 
-           #_LOGGER.warn("nao Recebido conf_partition =  %s",message.CONF_PARTITION)
-           self.CONF_PARTITION = False
-           
-        self._attr_extra_state_attributes = {
-            "particao": message.CONF_PARTITION,
-            "ac_power": message.ac_power,
-            "alarm_event_occurred": message.alarm_event_occurred,
-            "backlight_on": message.backlight_on,
-            "battery_low": message.battery_low,
-            "check_zone": message.check_zone,
-            "chime": message.chime_on,
-            "entry_delay_off": message.entry_delay_off,
-            "programming_mode": message.programming_mode,
-            "ready": message.ready,
-            "zone_bypassed": message.zone_bypassed,
-        }
+           _LOGGER.warn("mensagem disarmed")
         self.schedule_update_ha_state()
-    def checksum(self,dados):
-        checksum = 0
-        for n in dados:
-           checksum ^= n
 
-        return checksum
-    def alarm_disarm(self, code: str | None = None) -> None:
-        """Send disarm command."""
-        if not self._validate_code(code, STATE_ALARM_DISARMED):
+    async def async_alarm_disarm(self, code=None):
+        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_DISARMED):
             return
-        #_LOGGER.warn("Desarme quantas Particoes  %s",self.CONF_PARTITION)
-        if self.CONF_PARTITION:
-           #message = b'\xb3\x36\x02\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4f\x01'
-           check = self.checksum(message)
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
-           #message = b'\xB3\x36\x02\x02\x00\x00\x00'
-           message = b'\x7b\6\x01\x4f\x02'
-           check = self.checksum(message)
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
-        else:
-           #message = b'\xb3\x36\x02\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4f\x01'
-           check = self.checksum(message)
-           self._attr_state = STATE_ALARM_DISARMED
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
+        # Implementar lógica para desarmar o alarme
+        self._alarm_server.send_command("disarm")
+        #self._state = STATE_ALARM_DISARMED
+        #self.async_write_ha_state()
 
-    def alarm_arm_away(self, code: str | None = None) -> None:
-        """Send arm away command."""
+    async def async_alarm_arm_away(self, code=None):
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_AWAY):
             return
-        #_LOGGER.warn("arme away quantas Particoes  %s",self.CONF_PARTITION)
-        if self.CONF_PARTITION:
-           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x01'
-           check = self.checksum(message)
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
-           #message = b'\xb3\x36\x01\x02\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x02'
-           check = self.checksum(message)
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
-        else:
-           _LOGGER.warn("enviando arme away")
-           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x01'
-           check = self.checksum(message)
-           self._attr_state = STATE_ALARM_ARMED_AWAY
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
+        # Implementar lógica para armar o alarme no modo "away"
+        self._alarm_server.send_command("arm_away")
+        #self._state = STATE_ALARM_ARMED_AWAY
+        #self.async_write_ha_state()
 
-    def alarm_arm_home(self, code: str | None = None) -> None:
-        """Send arm home command."""
+    async def async_alarm_arm_home(self, code=None):
         if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
             return
-        #_LOGGER.warn("arme home quantas Particoes  %s",self.CONF_PARTITION)    
-        if self.CONF_PARTITION:
-           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x01'
-           check = self.checksum(message)
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
-        else:
-           _LOGGER.warn("enviando arme home")
-           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x01'
-           check = self.checksum(message)
-           self._attr_state = STATE_ALARM_ARMED_HOME
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
+        # Implementar lógica para armar o alarme no modo "home"
+        self._alarm_server.send_command("arm_home")
+        #self._state = STATE_ALARM_ARMED_HOME
+        #self.async_write_ha_state()
 
-
-    def alarm_arm_night(self, code: str | None = None) -> None:
-        """Send arm night command."""
-        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
+    async def async_alarm_arm_night(self, code=None):
+        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_NIGHT):
             return
-        # _LOGGER.warn("arme night quantas Particoes  %s",self.CONF_PARTITION)
-        if self.CONF_PARTITION:
-           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x01'
-           check = self.checksum(message)
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
-           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x02'
-           check = self.checksum(message)
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
-        else:
-           _LOGGER.warn("enviando arme night")
-           #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x01'
-           check = self.checksum(message)
-           self._attr_state = STATE_ALARM_ARMED_NIGHT
-           message += check.to_bytes(1,'big')
-           self._client.put(bytes(message))
+        # Implementar lógica para armar o alarme no modo "night"
+        self._alarm_server.send_command("arm_night")
+        #self._state = STATE_ALARM_ARMED_NIGHT
+        #self.async_write_ha_state()
 
-
-    def alarm_toggle_chime(self, code=None):
-        """Send toggle chime command."""
-        if code:
-            self._client.send(f"{code!s}9")
-
-    def alarm_keypress(self, keypress):
-        """Send custom keypresses."""
-        if keypress:
-            self._client.send(keypress)
+    async def async_alarm_trigger(self, code=None):
+        # Implementar lógica para disparar o alarme
+        self._alarm_server.send_command("trigger")
+        #self._state = STATE_ALARM_TRIGGERED
+        #self.async_write_ha_state()
     def _validate_code(self, code, state):
         """Validate given code."""
         if self._code is None:
@@ -270,3 +154,30 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         if not check:
             _LOGGER.warn("Invalid code given for %s", state)
         return check
+
+    
+
+async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities) -> None:
+    """Set up for JFL Active alarm panels."""
+    alarm_server = hass.data[DOMAIN][config_entry.entry_id]
+    options = config_entry.options
+    arm_options = options.get(OPTIONS_ARM, DEFAULT_ARM_OPTIONS)
+    alarm_server = hass.data[DOMAIN][config_entry.entry_id]
+
+    entity = AlarmPanel(hass,alarm_server,"Alarm Panel",
+        auto_bypass=arm_options[CONF_AUTO_BYPASS],
+        code_arm_required=arm_options[CONF_CODE_ARM_REQUIRED],
+        code_required=arm_options[CONF_CODE_REQUIRED],
+        alt_night_mode=arm_options[CONF_ALT_NIGHT_MODE],
+    )
+    async_add_entities([entity])
+
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        SERVICE_ALARM_COMMAND,
+        {
+            vol.Required(ATTR_CODE): cv.string,
+        },
+        "alarm_command",
+    )
+
