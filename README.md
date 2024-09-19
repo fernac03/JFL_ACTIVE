@@ -1,4 +1,4 @@
-# JFL Active
+# JFL Active Nova  versão Codigo completamente  reescrito 
 
 Integração com o Home Assistant para as centrais de alarme JFL da linha Active.
 
