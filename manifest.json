@@ -1,6 +1,6 @@
 {
   "domain": "jfl_active",
-  "version": "0.22",
+  "version": "1.0",
   "name": "JFL Active",
   "documentation": "https://github.com/fernac03/JFL_ACTIVE",
   "issue_tracker": "https://github.com/fernac03/JFL_ACTIVE/issues",
@@ -10,3 +10,4 @@
   "loggers": ["jfl_active"],
   "codeowners": ["@fernac03"]
 }
+
