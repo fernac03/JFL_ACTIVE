@@ -1,159 +1,199 @@
-"""Support for AlarmDecoder sensors (Shows Panel Display)."""
-from homeassistant.components.sensor import SensorEntity
+# sensor.py
+import asyncio
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.core import callback
+from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.siren import (
-    ATTR_DURATION,
-    DOMAIN,
-    SirenEntity,
-    SirenEntityFeature,
-)
+from homeassistant.helpers.entity import async_generate_entity_id
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from .alarm_coordinator import AlarmServerCoordinator
+from homeassistant.const import PERCENTAGE
 import logging
-from typing import Any
-from .const import SIGNAL_PANEL_MESSAGE
+from datetime import timedelta
+from .const import DOMAIN
+from homeassistant.const import (
+    STATE_ON,
+    STATE_OFF,
+    STATE_UNKNOWN,
+    DEVICE_CLASS_BATTERY,
+    STATE_ALARM_ARMED_HOME,
+    STATE_ALARM_ARMED_NIGHT,
+    STATE_ALARM_DISARMED,
+    STATE_ALARM_TRIGGERED,
 
+)
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorDeviceClass,
+    SensorStateClass,
+)
 _LOGGER = logging.getLogger(__name__)
+ENTITY_ID_FORMAT = 'sensor.{}'
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-    """Set up for JFL Active sensor."""
+class AlarmSensor(CoordinatorEntity, Entity):
+    def __init__(self, coordinator, alarm_server, sensor_id, name,device_id,device_class):
+        super().__init__(coordinator)
+        self._alarm_server = alarm_server
+        self._unique_id = sensor_id	
+        self._name = name
+        self._device_id = device_id
+        self._device_class = None
 
+    @property
+    def name(self):
+        return self._name
+    @property
+    def unique_id(self):
+        return f"{self._unique_id}"
 
-    entity = JFLActiveSensor()
-    async_add_entities([entity])
-    entity = JFLActiveBattery()
-    async_add_entities([entity])
-    entity = JFLActiveSiren()
-    async_add_entities([entity])
-    entity = JFLActivePartition()
-    async_add_entities([entity])
-    entity = JFLActiveEletricFecnce()
-    async_add_entities([entity])
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self._alarm_server.unique_id)},
+            "via_device": (DOMAIN, self._alarm_server.unique_id),
+        }
+    @property
+    def state(self):
+        return self.coordinator.data.sensor_data.get(self._unique_id, False).get("state")       
 
+    @property
+    def extra_state_attributes(self):
+         return self.coordinator.data.sensor_data.get(self._unique_id, {}).get("attributes", {})        
 
-class JFLActiveSensor(SensorEntity):
-    """Representation of an JFL Active keypad."""
+    @property
+    def is_on(self):
+        return self.state == "on"
+    @property
+    def device_class(self):
+        return self._device_class
 
-    _attr_icon = "mdi:alarm-check"
-    _attr_name = "Alarm Panel Display"
-    _attr_should_poll = False
-    _attr_unique_id = "JFLActive_KEYPAD"
-    async def async_added_to_hass(self):
-        """Register callbacks."""
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_PANEL_MESSAGE, self._message_callback
-            )
-        )
-
-    def _message_callback(self, message):
-        if self._attr_native_value != message.text:
-            self._attr_native_value = message.text
-            self.schedule_update_ha_state()
-class JFLActiveBattery(SensorEntity):
-    """Representation of an JFL Active Batery."""
+class AlarmParticao(CoordinatorEntity, Entity):
+    def __init__(self, coordinator, alarm_server, sensor_id, name,device_id,device_class,options: list):
+        super().__init__(coordinator)
+        self._alarm_server = alarm_server
+        self._unique_id = sensor_id	
+        self._name = name
+        self._device_id = device_id
+        self._device_class = None
+        self._attr_options = options
+        self._attr_state_class = SensorStateClass.MEASUREMENT
     
-    _attr_icon = "mdi:battery-10"
-    _attr_name = "Alarm Panel Baterry"
-    _attr_should_poll = True
-    _attr_unique_id = "JFLActive_Battery"
-    async def async_added_to_hass(self):
-        """Register callbacks."""
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_PANEL_MESSAGE, self._message_callback
-            )
-        )
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        return self.coordinator.data.sensor_data.get(self._unique_id)
+    @property
 
-    def _message_callback(self, message):
-        if message.battery_low:
-            self._attr_icon = "mdi:battery-10"
-            self._attr_native_value = "Low"
-            self.schedule_update_ha_state()
-        else:
-            self._attr_icon = "mdi:battery"
-            self._attr_native_value = "Charged"
-            self.schedule_update_ha_state()
+    def name(self):
+        return self._name
+    @property
+    def unique_id(self):
+        return f"{self._unique_id}"
 
-class JFLActiveSiren(SirenEntity):
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self._alarm_server.unique_id)},
+            "via_device": (DOMAIN, self._alarm_server.unique_id),
+        }
+    @property
+    def state(self):
+        return self.coordinator.data.sensor_data.get(self._unique_id, False).get("state")       
 
-    """Representation of an JFL Active Siren."""
-    _attr_icon = "mdi:alarm-bell"
-    _attr_name = "Alarm Panel Siren A"
-    _attr_should_poll = True
-    _attr_unique_id = "JFLActive_SIREN"
-    _attr_supported_features = (
-            SirenEntityFeature.TURN_ON | SirenEntityFeature.TURN_OFF
-    )
+    @property
+    def extra_state_attributes(self):
+         return self.coordinator.data.sensor_data.get(self._unique_id, {}).get("attributes", {})        
 
-    async def async_added_to_hass(self):
-        """Register callbacks."""
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_PANEL_MESSAGE, self._message_callback
-            )
-        )
-    def _message_callback(self, message):
-        if message.alarm_sounding:
-            self._attr_is_on = True
-            self.schedule_update_ha_state() 
-        else:
-            self._attr_is_on = False
-            self.schedule_update_ha_state() 
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        return {
+            "options": self._attr_options,
+        }
+class AlarmBatterySensor(CoordinatorEntity, Entity):
+    def __init__(self, coordinator, alarm_server, sensor_id, name,device_id,device_class):
+        super().__init__(coordinator)
+        self._alarm_server = alarm_server
+        self._unique_id=sensor_id
+        self._name = name
+        self._device_id = device_id
+        self._device_class = DEVICE_CLASS_BATTERY
+        self._attributes = {}
+    @property
+    def name(self):
+        return self._name
 
-    async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the entity on."""
-        await self.call_state_change(True)
+    @property
+    def unique_id(self):
+        return f"{self._unique_id}"
 
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn the entity off."""
-        await self.call_state_change(False)
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self._alarm_server.unique_id)},
+            "via_device": (DOMAIN, self._alarm_server.unique_id),
+        }
+    @property
+    def state(self):
+        return self.coordinator.data.sensor_data.get(self._unique_id, False).get("state")       
 
-class JFLActivePartition(SensorEntity):
-    """Representation of an JFL Active Eletric Fence."""
+    @property
+    def extra_state_attributes(self):
+         return self.coordinator.data.sensor_data.get(self._unique_id, {}).get("attributes", {})        
+    
+    @property
+    def device_class(self):
+        return DEVICE_CLASS_BATTERY
 
-    _attr_icon = "mdi:collage"
-    _attr_name = "Partition"
-    _attr_should_poll = False
-    _attr_unique_id = "JFLActive_Partition"
-    async def async_added_to_hass(self):
-        """Register callbacks."""
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_PANEL_MESSAGE, self._message_callback
-            )
-        )
+    @property
+    def unit_of_measurement(self):
+        return PERCENTAGE
 
-    def _message_callback(self, message):
-        if message.CONF_PARTITION:
-            self._attr_native_value = True
-            self.schedule_update_ha_state()
-        else:
-            self._attr_native_value = False
-            self.schedule_update_ha_state()
-            
-class JFLActiveEletricFecnce(SensorEntity):
-    """Representation of an JFL Active Eletric Fence."""
+    @property
+    def extra_state_attributes(self):
+        return self._attributes
 
-    _attr_icon = "mdi:flash"
-    _attr_name = "Eletric Fence"
-    _attr_should_poll = False
-    _attr_unique_id = "JFLActive_EletricFence"
-    async def async_added_to_hass(self):
-        """Register callbacks."""
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_PANEL_MESSAGE, self._message_callback
-            )
-        )
+    @property
+    def state(self):
+        return self._attr_state
 
-    def _message_callback(self, message):
-        if message.eletrificador==True:
-            self._attr_native_value = True
-            self.schedule_update_ha_state()
-        else:
-            self._attr_native_value = False
-            self.schedule_update_ha_state()
+
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    alarm_server = hass.data[DOMAIN][config_entry.entry_id]
+    device_id = alarm_server.device_id
+    coordinator = hass.data[DOMAIN][config_entry.entry_id].coordinator
+    _LOGGER.warn("aqui no async_setup do sensor")
+    created_sensors = {}
+    async def async_add_sensors():
+        new_sensors = []
+        sensor_states = await hass.async_add_executor_job(alarm_server.get_all_sensor_states)
+        for sensor_id , sensor_data in sensor_states.items():
+            # Gere um ID de entidade único
+            unique_id = f"{alarm_server.device_id}_{sensor_id}"
+            #_LOGGER.warn(f"id do sensor: {sensor_id}")
+            entity_id = async_generate_entity_id(ENTITY_ID_FORMAT, f"_{sensor_id}", hass=hass)
+            # Verifique se o sensor já existe
+            if unique_id not in created_sensors:
+                #_LOGGER.warn(sensor_data["device_class"])
+                if sensor_data["device_class"] == DEVICE_CLASS_BATTERY:
+                   new_sensor = AlarmBatterySensor(coordinator, alarm_server, sensor_id, sensor_data["name"], unique_id,sensor_data["device_class"])
+                   #_LOGGER.warn(new_sensor)
+                elif sensor_data["device_class"] == "ENUM":
+                   new_sensor = AlarmParticao(coordinator, alarm_server, sensor_id, sensor_data["name"], unique_id,sensor_data["device_class"],[STATE_ALARM_ARMED_HOME,STATE_ALARM_ARMED_NIGHT, STATE_ALARM_DISARMED, STATE_ALARM_TRIGGERED])    
+                else:
+                   new_sensor = AlarmSensor(coordinator, alarm_server, sensor_id, sensor_data["name"], unique_id,sensor_data["device_class"])
+                new_sensors.append(new_sensor)
+                created_sensors[unique_id] = new_sensor
+                alarm_server.entities.append(new_sensor)
+        if new_sensors:
+            async_add_entities(new_sensors)
+
+    await async_add_sensors()
+    # Configura um listener para adicionar novos sensores quando a central se reconectar
+    async def async_central_updated(event):
+        await coordinator.async_request_refresh()
+        await async_add_sensors()
+
+    hass.bus.async_listen("alarm_central_updated", async_central_updated)
