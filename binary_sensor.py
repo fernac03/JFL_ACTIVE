@@ -1,159 +1,102 @@
-"""Support for JFL Active zone states- represented as binary sensors."""
-import logging
-
-from homeassistant.components.binary_sensor import BinarySensorEntity
+# binary_sensor.py
+import asyncio
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.core import callback
+from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from .alarm_coordinator import AlarmServerCoordinator
+#from homeassistant.core import HomeAssistant, Event
+#from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.entity import async_generate_entity_id
 
-from .const import (
-    CONF_RELAY_ADDR,
-    CONF_RELAY_CHAN,
-    CONF_ZONE_LOOP,
-    CONF_ZONE_NAME,
-    CONF_ZONE_NUMBER,
-    CONF_ZONE_RFID,
-    CONF_ZONE_TYPE,
-    DEFAULT_ZONE_OPTIONS,
-    OPTIONS_ZONES,
-    SIGNAL_REL_MESSAGE,
-    SIGNAL_RFX_MESSAGE,
-    SIGNAL_ZONE_FAULT,
-    SIGNAL_ZONE_RESTORE,
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+    BinarySensorEntityDescription,
 )
-
+from homeassistant.const import (
+    STATE_ON,
+    STATE_OFF,
+    STATE_UNKNOWN,
+)
+from datetime import timedelta
+import logging
+from .const import DOMAIN
+ENTITY_ID_FORMAT = 'binary_sensor.{}'
 _LOGGER = logging.getLogger(__name__)
 
-ATTR_RF_BIT0 = "rf_bit0"
-ATTR_RF_LOW_BAT = "rf_low_battery"
-ATTR_RF_SUPERVISED = "rf_supervised"
-ATTR_RF_BIT3 = "rf_bit3"
-ATTR_RF_LOOP3 = "rf_loop3"
-ATTR_RF_LOOP2 = "rf_loop2"
-ATTR_RF_LOOP4 = "rf_loop4"
-ATTR_RF_LOOP1 = "rf_loop1"
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    alarm_server = hass.data[DOMAIN][config_entry.entry_id]
+    device_id = alarm_server.device_id
+    coordinator = hass.data[DOMAIN][config_entry.entry_id].coordinator
+    _LOGGER.warn("aqui no async_setup do sensor")
+    created_sensors = {}
+    async def async_add_binary_sensors():
+        new_binary_sensors = []
+        binary_sensor_states = await hass.async_add_executor_job(alarm_server.get_all_binary_sensor_states)
+        for zone_id,zone_data in binary_sensor_states.items():
+            # Gere um ID de entidade único
+            unique_id = f"{alarm_server.device_id}_{zone_id}"
+            entity_id = async_generate_entity_id(ENTITY_ID_FORMAT, f"zona_{zone_id}", hass=hass)
+            # Verifique se o sensor já existe
+            if unique_id not in created_sensors:
+                new_sensor = AlarmBinarySensor(coordinator, alarm_server, zone_id, zone_data["name"], unique_id, entity_id, BinarySensorDeviceClass.OPENING)
+                new_binary_sensors.append(new_sensor)
+                created_sensors[unique_id] = new_sensor
+                alarm_server.entities.append(new_sensor)
+        if new_binary_sensors:
+            async_add_entities(new_binary_sensors)
+
+    await async_add_binary_sensors()
+    # Configura um listener para adicionar novos sensores quando a central se reconectar
+    async def async_central_updated(event):
+        await coordinator.async_request_refresh()
+        await async_add_binary_sensors()
+
+    hass.bus.async_listen("alarm_central_updated", async_central_updated)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-    """Set up for JFL Active sensor."""
 
-    zones = entry.options.get(OPTIONS_ZONES, DEFAULT_ZONE_OPTIONS)
+class AlarmBinarySensor(CoordinatorEntity, Entity):
+    def __init__(self, coordinator, alarm_server, unique_id, name, device_id, zone_number, device_class):
+        super().__init__(coordinator)
+        self._alarm_server = alarm_server
+        self._unique_id = unique_id
+        self._name = name
+        self._device_id = device_id
+        self._zone_number = zone_number
+        self._device_class = device_class
+    @property
+    def unique_id(self):
+        return f"{self._unique_id}"
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def is_on(self):
+        return self.coordinator.data.binary_sensor_data.get(self._unique_id, False).get("state")       
+    @property
+    def device_class(self):
+        return self._device_class
+
+    @property
+    def extra_state_attributes(self):
+         return self.coordinator.data.binary_sensor_data.get(self.entity_id, {}).get("attributes", {})        
     
-    entities = []
-    for zone_num in zones:
-        zone_info = zones[zone_num]
-        zone_type = zone_info[CONF_ZONE_TYPE]
-        zone_name = zone_info[CONF_ZONE_NAME]
-        zone_rfid = zone_info.get(CONF_ZONE_RFID)
-        zone_loop = zone_info.get(CONF_ZONE_LOOP)
-        relay_addr = zone_info.get(CONF_RELAY_ADDR)
-        relay_chan = zone_info.get(CONF_RELAY_CHAN)
-        entity = JflBinarySensor(
-            zone_num, zone_name, zone_type, zone_rfid, zone_loop, relay_addr, relay_chan
-        )
-        entities.append(entity)
-
-    async_add_entities(entities)
-
-
-class JflBinarySensor(BinarySensorEntity):
-    """Representation of an JFL Active binary sensor."""
-
-    _attr_should_poll = False
-
-    def __init__(
-        self,
-        zone_number,
-        zone_name,
-        zone_type,
-        zone_rfid,
-        zone_loop,
-        relay_addr,
-        relay_chan,
-    ):
-        """Initialize the binary_sensor."""
-        self._zone_number = int(zone_number)
-        self._zone_type = zone_type
-        self._attr_name = zone_name
-        self._attr_is_on = False
-        self._rfid = zone_rfid
-        self._loop = zone_loop
-        self._relay_addr = relay_addr
-        self._relay_chan = relay_chan
-        self._attr_device_class = zone_type
-        self._attr_unique_id = "JFLActive_Zone_"+str(self._zone_number)
-        self._attr_extra_state_attributes = {
-            CONF_ZONE_NUMBER: self._zone_number,
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self._alarm_server.unique_id)},
+            "via_device": (DOMAIN, self._alarm_server.unique_id),
         }
+    async def async_turn_on(self, **kwargs):
+        #await self._alarm_server.send_command(f"switch_on_{self._switch_id}")
+        await self.coordinator.async_request_refresh()
 
-    async def async_added_to_hass(self):
-        """Register callbacks."""
-        self.async_on_remove(
-            async_dispatcher_connect(self.hass, SIGNAL_ZONE_FAULT, self._fault_callback)
-        )
+    async def async_turn_off(self, **kwargs):
+        #await self._alarm_server.send_command(f"switch_off_{self._switch_id}")
+        await self.coordinator.async_request_refresh()
 
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_ZONE_RESTORE, self._restore_callback
-            )
-        )
-
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_RFX_MESSAGE, self._rfx_message_callback
-            )
-        )
-
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_REL_MESSAGE, self._rel_message_callback
-            )
-        )
-
-    def _fault_callback(self, zone):
-        """Update the zone's state, if needed."""
-        if zone is None or int(zone) == self._zone_number:
-            self._attr_is_on = True
-            self.schedule_update_ha_state()
-
-    def _restore_callback(self, zone):
-        """Update the zone's state, if needed."""
-        if zone is None or (int(zone) == self._zone_number and not self._loop):
-            self._attr_is_on = False
-            self.schedule_update_ha_state()
-
-    def _rfx_message_callback(self, message):
-        """Update RF state."""
-        if self._rfid and message and message.serial_number == self._rfid:
-            rfstate = message.value
-            if self._loop:
-                self._attr_is_on = bool(message.loop[self._loop - 1])
-            attr = {CONF_ZONE_NUMBER: self._zone_number}
-            if self._rfid and rfstate is not None:
-                attr[ATTR_RF_BIT0] = bool(rfstate & 0x01)
-                attr[ATTR_RF_LOW_BAT] = bool(rfstate & 0x02)
-                attr[ATTR_RF_SUPERVISED] = bool(rfstate & 0x04)
-                attr[ATTR_RF_BIT3] = bool(rfstate & 0x08)
-                attr[ATTR_RF_LOOP3] = bool(rfstate & 0x10)
-                attr[ATTR_RF_LOOP2] = bool(rfstate & 0x20)
-                attr[ATTR_RF_LOOP4] = bool(rfstate & 0x40)
-                attr[ATTR_RF_LOOP1] = bool(rfstate & 0x80)
-            self._attr_extra_state_attributes = attr
-            self.schedule_update_ha_state()
-
-    def _rel_message_callback(self, message):
-        """Update relay / expander state."""
-
-        if self._relay_addr == message.address and self._relay_chan == message.channel:
-            _LOGGER.debug(
-                "%s %d:%d value:%d",
-                "Relay" if message.type == message.RELAY else "ZoneExpander",
-                message.address,
-                message.channel,
-                message.value,
-            )
-            self._attr_is_on = bool(message.value)
-            self.schedule_update_ha_state()
