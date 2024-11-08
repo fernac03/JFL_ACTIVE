@@ -89,18 +89,12 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
     _attr_name = "Alarm Panel"
     _attr_should_poll = False
     _attr_code_format = CodeFormat.NUMBER
-    _attr_alarm_state: AlarmControlPanelState | None = None
     _attr_supported_features = (
         AlarmControlPanelEntityFeature.ARM_HOME
         | AlarmControlPanelEntityFeature.ARM_AWAY
         | AlarmControlPanelEntityFeature.ARM_NIGHT
     )
-    @property
-    def alarm_state(self) -> AlarmControlPanelState | None:
-        """Return the state of the alarm."""
-        return self._attr_alarm_state
-        
-        
+            
     def __init__(self, client, auto_bypass, code_arm_required, alt_night_mode,code_required):
         """Initialize the alarm panel."""
         self._client = client
@@ -181,7 +175,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            #message = b'\xb3\x36\x02\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4f\x01'
            check = self.checksum(message)
-           self._attr_state = AlarmControlPanelState.DISARMED
+           #self._attr_state = AlarmControlPanelState.DISARMED
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
@@ -201,12 +195,13 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
+           #self._attr_state = AlarmControlPanelState.ARMED_AWAY
         else:
            _LOGGER.warn("enviando arme away")
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
-           self._attr_state = AlarmControlPanelState.ARMED_AWAY
+           #self._attr_state = AlarmControlPanelState.ARMED_AWAY
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
@@ -226,7 +221,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
-           self._attr_state = AlarmControlPanelState.ARMED_HOME
+           #self._attr_state = AlarmControlPanelState.ARMED_HOME
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
@@ -252,7 +247,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
-           self._attr_state = AlarmControlPanelState.ARMED_NIGHT
+           #self._attr_state = AlarmControlPanelState.ARMED_NIGHT
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
