@@ -15,17 +15,15 @@ from alarmdecoder.util import NoDeviceError
 
 from homeassistant.config_entries import ConfigEntry
 
+from homeassistant.components.alarm_control_panel import (
+    AlarmControlPanelState,
+)
 from homeassistant.const import (
     CONF_HOST,
     CONF_PORT,
     EVENT_HOMEASSISTANT_STOP,
     Platform,
     ATTR_CODE,
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_ARMED_NIGHT,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_TRIGGERED,
 )
 
 from homeassistant.core import HomeAssistant
@@ -33,11 +31,13 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.util import dt as dt_util
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers import device_registry as dr
+from homeassistant.components.switch import SwitchEntity
+from homeassistant.helpers.entity import Entity
+
 
 
 from .const import (
@@ -69,7 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     undo_listener = entry.add_update_listener(_update_listener)
 
     ad_connection = entry.data
-
+    
     def stop_alarmdecoder(event):
         """Handle the shutdown of JFL Active."""
         if not hass.data.get(DOMAIN):
@@ -95,9 +95,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DATA_RESTART: False,
     }
     hass.async_create_task(open_connection())
-    
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
     return True
 
 
@@ -121,11 +119,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return True
 
-
 async def _update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options update."""
     _LOGGER.debug("JFL Active options updated: %s", entry.as_dict()["options"])
     await hass.config_entries.async_reload(entry.entry_id)
+
 
 
 class JFLWatcher(threading.Thread):
@@ -150,9 +148,10 @@ class JFLWatcher(threading.Thread):
         self.host = ad_connection[CONF_HOST]
         self.port = ad_connection[CONF_PORT]
         self.hass = hass
+        self.tem_eletrificador=False
         self.armed_away = False
         self.armed_night = False
-        self._attr_state = STATE_ALARM_DISARMED
+        self._attr_state = AlarmControlPanelState.DISARMED
         self.alarm_sounding = False
         self.fire_alarm = False
         self.armed_home = False
@@ -175,41 +174,41 @@ class JFLWatcher(threading.Thread):
         if status =="00":
            return
         elif status =="01":
-           if self._attr_state != STATE_ALARM_DISARMED:
+           if self._attr_state != AlarmControlPanelState.DISARMED:
               _LOGGER.warn('status  particao desarmado') 
               #self._attr_state = STATE_ALARM_DISARMED
               #self.alarm_sounding = False
               #self.fire_alarm = False
               #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
         elif status == "02":
-           if ((self._attr_state != STATE_ALARM_ARMED_AWAY) and (self._attr_state != STATE_ALARM_ARMED_HOME)) :
+           if ((self._attr_state != AlarmControlPanelState.ARMED_AWAY) and (self._attr_state != AlarmControlPanelState.ARMED_HOME)) :
               _LOGGER.warn('status  particao armado')
               #self._attr_state = STATE_ALARM_
               #_LOGGER.warn(self._attr_state)
            # return
         elif status == "03":
-           if self._attr_state != STATE_ALARM_ARMED_HOME:
+           if self._attr_state != AlarmControlPanelState.ARMED_HOME:
               _LOGGER.warn('status  particao  Armado Home')
               #_LOGGER.warn(self._attr_state)
            #return
         elif status == "04":
-           if self._attr_state != STATE_ALARM_DISARMED:
+           if self._attr_state != AlarmControlPanelState.DISARMED:
               _LOGGER.warn('status  particao  Disarmado')
            #return
         elif status =="81":
-           if self._attr_state != STATE_ALARM_TRIGGERED:
+           if self._attr_state != AlarmControlPanelState.TRIGGERED:
               _LOGGER.warn('status  particao desarmado disparado')
            #return
         elif status =="82":
-           if self._attr_state != STATE_ALARM_TRIGGERED:
+           if self._attr_state != AlarmControlPanelState.TRIGGERED:
               _LOGGER.warn('status  particao  Armado Away e disparado')
            #return
         elif status =="83":
-           if self._attr_state != STATE_ALARM_TRIGGERED:
+           if self._attr_state != AlarmControlPanelState.TRIGGERED:
               _LOGGER.warn('status particao Armado Home  e disparado')
            #return
         elif status =="84":
-           if self._attr_state != STATE_ALARM_TRIGGERED:
+           if self._attr_state != AlarmControlPanelState.TRIGGERED:
               _LOGGER.warn('status  particao desarmado e disparado')
            #return
         else:
@@ -312,26 +311,37 @@ class JFLWatcher(threading.Thread):
                             #_LOGGER.warn("Tipo Central  %s", f'{data[41]:0>2X}')
                             if 'A0' in f'{data[41]:0>2X}':
                                MODELO = 'Active-32 Duo'
+                               self.tem_eletrificador=True
                             elif 'A1' in f'{data[41]:0>2X}':
                                MODELO = 'Active 20 Ultra/GPRS'
+                               self.tem_eletrificador=True
                             elif 'A2' in f'{data[41]:0>2X}':
                                MODELO = 'Active 8 Ultra'
+                               self.tem_eletrificador=False
                             elif 'A3' in f'{data[41]:0>2X}':
                                MODELO = 'Active 20 Ethernet'
+                               self.tem_eletrificador=True
                             elif 'A4' in f'{data[41]:0>2X}':
                                MODELO = 'Active 100 Bus'
+                               self.tem_eletrificador=True
                             elif 'A5' in f'{data[41]:0>2X}':
                                MODELO = 'Active 20 Bus'
+                               self.tem_eletrificador=True
                             elif 'A6' in f'{data[41]:0>2X}':
                                MODELO = 'Active Full 32'
+                               self.tem_eletrificador=False
                             elif 'A7' in f'{data[41]:0>2X}':
                                MODELO = 'Active 20'
+                               self.tem_eletrificador=True
                             elif 'A8' in f'{data[41]:0>2X}':
                                MODELO = 'Active 8W'
+                               self.tem_eletrificador=True
                             elif '4B' in f'{data[41]:0>2X}':
                                MODELO = 'M-300+'
+                               self.tem_eletrificador=False
                             elif '5D' in f'{data[41]:0>2X}':
                                MODELO = 'm-300 Flex'
+                               self.tem_eletrificador=False
                             self.CONF_MODELO = MODELO
                             MAC=data[29:41].decode("utf-8")
                             NS = data[4:14].decode('ascii')
@@ -356,6 +366,7 @@ class JFLWatcher(threading.Thread):
                             #_LOGGER.warn("Eletrificador   %s", f'{data[54]:0>2X}')
                             if '00' in f'{data[54]:0>2X}':
                               self.eletrificador=False
+                              self.tem_eletrificador=False
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                             else:
                               self.eletrificador=True
@@ -384,23 +395,22 @@ class JFLWatcher(threading.Thread):
                               self.armed_away = False
                               self.armed_night = False
                               self.armed_home = True
-                              self._attr_state = STATE_ALARM_ARMED_HOME
+                              self._attr_state = AlarmControlPanelState.ARMED_HOME
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            if evento == '3401' or evento == '3407' or evento =='3403' or evento =='3404' or evento =='3408' or evento=='3409' :
                               self.armed_away = False
                               self.armed_night = False
                               self.armed_home = True
-                              self._attr_state = STATE_ALARM_ARMED_AWAY
+                              self._attr_state = AlarmControlPanelState.ARMED_AWAY
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == '1401' or evento =='1407' or evento =='1403' or evento=='1409':
-                              _LOGGER.warn("Evento  %s", evento)
                               self.armed_home =False
                               self.armed_away =False
                               self.armed_night =False
                               self.alarm_sounding = False
                               self.fire_alarm = False
                               self.eletrificador=False
-                              self._attr_state = STATE_ALARM_DISARMED
+                              self._attr_state = AlarmControlPanelState.DISARMED
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == '1130' and self.armed_home == True:
                               self.fire_alarm=True
@@ -426,7 +436,8 @@ class JFLWatcher(threading.Thread):
                            if evento == '3407':
                               self.eletrificador=True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
-                           LOGGER.warn("Eventos=%s", evento)
+                           
+                           _LOGGER.warn("Evento  %s", evento)
                            message = b'\x7b\x0a\x01\x24\x01'
                            message += bytes({data[17]})
                            message += bytes({data[18]})
@@ -459,6 +470,7 @@ class JFLWatcher(threading.Thread):
                            #_LOGGER.warn("Eletrificador %s", f'{data[30]:0>2X}')
                            if '00' in f'{data[30]:0>2X}':
                               self.eletrificador=False
+                              self.tem_eletrificador=False
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            else:
                               _LOGGER.debug("pacote com 118 Eletrificador %s", f'{data[30]:0>2X}')

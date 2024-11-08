@@ -29,3 +29,18 @@ alarm_toggle_chime:
       example: 1234
       selector:
         text:
+alarm_toggle_fence:
+  name: Toggle fence
+  description: Send the alarm the toggle fence command.
+  target:
+    entity:
+      integration: jfl_active
+      domain: alarm_control_panel
+  fields:
+    code:
+      name: Code
+      description: A code to toggle Fence .
+      required: true
+      example: 1234
+      selector:
+        text:

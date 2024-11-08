@@ -6,17 +6,13 @@ import logging
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity,
     AlarmControlPanelEntityFeature,
+    AlarmControlPanelState,
     CodeFormat,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_CODE,
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_ARMED_NIGHT,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_TRIGGERED,
-)
+ )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 import homeassistant.helpers.config_validation as cv
@@ -39,6 +35,7 @@ from .const import (
 )
 _LOGGER = logging.getLogger(__name__)
 SERVICE_ALARM_TOGGLE_CHIME = "alarm_toggle_chime"
+SERVICE_ALARM_TOGGLE_FENCE = "alarm_toggle_fence"
 
 SERVICE_ALARM_KEYPRESS = "alarm_keypress"
 ATTR_KEYPRESS = "keypress"
@@ -69,7 +66,13 @@ async def async_setup_entry(
         },
         "alarm_toggle_chime",
     )
-
+    platform.async_register_entity_service(
+        SERVICE_ALARM_TOGGLE_FENCE,
+        {
+            vol.Required(ATTR_CODE): cv.string,
+        },
+        "alarm_toggle_fence",
+    )
     platform.async_register_entity_service(
         SERVICE_ALARM_KEYPRESS,
         {
@@ -77,6 +80,7 @@ async def async_setup_entry(
         },
         "alarm_keypress",
     )
+    
 
 
 class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
@@ -85,12 +89,18 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
     _attr_name = "Alarm Panel"
     _attr_should_poll = False
     _attr_code_format = CodeFormat.NUMBER
+    _attr_alarm_state: AlarmControlPanelState | None = None
     _attr_supported_features = (
         AlarmControlPanelEntityFeature.ARM_HOME
         | AlarmControlPanelEntityFeature.ARM_AWAY
         | AlarmControlPanelEntityFeature.ARM_NIGHT
     )
-
+    @property
+    def alarm_state(self) -> AlarmControlPanelState | None:
+        """Return the state of the alarm."""
+        return self._attr_alarm_state
+        
+        
     def __init__(self, client, auto_bypass, code_arm_required, alt_night_mode,code_required):
         """Initialize the alarm panel."""
         self._client = client
@@ -111,18 +121,18 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
     def _message_callback(self, message):
         """Handle received messages."""
         if message.alarm_sounding or message.fire_alarm:
-           self._attr_state = STATE_ALARM_TRIGGERED
+           self._attr_alarm_state = AlarmControlPanelState.TRIGGERED
         elif message.armed_away:
-           self._attr_state = STATE_ALARM_ARMED_AWAY
+           self._attr_alarm_state = AlarmControlPanelState.ARMED_AWAY
            #_LOGGER.warn("mensagem armed_AWAY")
         elif message.armed_home:
-           self._attr_state = STATE_ALARM_ARMED_HOME
+           self._attr_alarm_state = AlarmControlPanelState.ARMED_HOME
            #_LOGGER.warn("mensagem armed_home")
         elif message.armed_night:
-           self._attr_state = STATE_ALARM_ARMED_NIGHT
+           self._attr_alarm_state = AlarmControlPanelState.ARMED_NIGHT
            #_LOGGER.warn("mensagem armed_night")
         else:
-           self._attr_state = STATE_ALARM_DISARMED
+           self._attr_alarm_state = AlarmControlPanelState.DISARMED
            #_LOGGER.warn("mensagem disarmed")
         if message.CONF_PARTITION:
            #_LOGGER.warn("Recebido conf_partition =  %s",message.CONF_PARTITION)
@@ -153,7 +163,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         return checksum
     def alarm_disarm(self, code: str | None = None) -> None:
         """Send disarm command."""
-        if not self._validate_code(code, STATE_ALARM_DISARMED):
+        if not self._validate_code(code, AlarmControlPanelState.DISARMED):
             return
         #_LOGGER.warn("Desarme quantas Particoes  %s",self.CONF_PARTITION)
         if self.CONF_PARTITION:
@@ -171,13 +181,13 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            #message = b'\xb3\x36\x02\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4f\x01'
            check = self.checksum(message)
-           self._attr_state = STATE_ALARM_DISARMED
+           self._attr_state = AlarmControlPanelState.DISARMED
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
     def alarm_arm_away(self, code: str | None = None) -> None:
         """Send arm away command."""
-        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_AWAY):
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_AWAY):
             return
         #_LOGGER.warn("arme away quantas Particoes  %s",self.CONF_PARTITION)
         if self.CONF_PARTITION:
@@ -196,13 +206,13 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
-           self._attr_state = STATE_ALARM_ARMED_AWAY
+           self._attr_state = AlarmControlPanelState.ARMED_AWAY
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
     def alarm_arm_home(self, code: str | None = None) -> None:
         """Send arm home command."""
-        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_HOME):
             return
         #_LOGGER.warn("arme home quantas Particoes  %s",self.CONF_PARTITION)    
         if self.CONF_PARTITION:
@@ -216,14 +226,14 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
-           self._attr_state = STATE_ALARM_ARMED_HOME
+           self._attr_state = AlarmControlPanelState.ARMED_HOME
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
 
     def alarm_arm_night(self, code: str | None = None) -> None:
         """Send arm night command."""
-        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_NIGHT):
             return
         # _LOGGER.warn("arme night quantas Particoes  %s",self.CONF_PARTITION)
         if self.CONF_PARTITION:
@@ -242,7 +252,7 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
            message = b'\x7b\6\x01\x4e\x01'
            check = self.checksum(message)
-           self._attr_state = STATE_ALARM_ARMED_NIGHT
+           self._attr_state = AlarmControlPanelState.ARMED_NIGHT
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
 
@@ -251,11 +261,29 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         """Send toggle chime command."""
         if code:
             self._client.send(f"{code!s}9")
-
+    def alarm_toggle_fence(self, code=None):
+        """Send toggle fence command."""
+        if code:
+           if self.eletrificador:
+              _LOGGER.warn("enviando arme da Cerca")
+              message = b'\x7b\6\x01\x4f\x63'
+              check = self.checksum(message)
+              self.eletrificador=True
+              message += check.to_bytes(1,'big')
+              self._client.put(bytes(message))
+           else:
+              _LOGGER.warn("enviando arme da Cerca")
+              message = b'\x7b\6\x01\x4e\x63'
+              check = self.checksum(message)
+              self.eletrificador=False
+              message += check.to_bytes(1,'big')
+              self._client.put(bytes(message))
+        
     def alarm_keypress(self, keypress):
         """Send custom keypresses."""
         if keypress:
             self._client.send(keypress)
+            
     def _validate_code(self, code, state):
         """Validate given code."""
         if self._code is None:
