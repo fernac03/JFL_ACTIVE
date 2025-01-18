@@ -105,8 +105,17 @@ Copie o conteúdo deste repositório para a pasta `/config/custom_components/jfl
   - no configurador Mobile vá  em  comunicação -> ip destino 1  coloque o IP do HA e porta destino 1  coloca a porta  cadastrada  
   exemplos: 192.168.1.1  porta 8085
 
-3. Defina uma senha para o alarme, não precisa ser a mesma da central
+3. Apos  Reiniciar  o HA  abra  a integração e  faça  a configuração do Arming Settings
+  ![image](https://github.com/user-attachments/assets/e862150b-44f0-48c3-8c72-02b93380a6d4)
+
+4. Defina uma senha para o alarme, não precisa ser a mesma da central
+ ![image](https://github.com/user-attachments/assets/f2b62ce6-c89f-4185-bc8d-0377b33a7229)
+
 4. Configure as zonas
+![image](https://github.com/user-attachments/assets/5c932bea-bd00-48d3-9c37-521329a920e2)
+![image](https://github.com/user-attachments/assets/b52e7615-bdd7-436a-a6b5-85e48599aa12)
+coloque  a numerração de zonas  de acordo  com as zonas  no APP Mobile  da JFL
+
 
 ## Funções
 
