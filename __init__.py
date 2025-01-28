@@ -12,11 +12,6 @@ from homeassistant.const import (
     Platform,
     ATTR_CODE,
     STATE_UNKNOWN,
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_ARMED_NIGHT,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_TRIGGERED,
     STATE_ON,
     STATE_OFF,
     STATE_UNAVAILABLE,
@@ -49,21 +44,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         model=alarm_server.model,
         sw_version=alarm_server.sw_version,
     )    
+    
     hass.data[DOMAIN][entry.entry_id].device_id = device.id
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "alarm_control_panel")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "binary_sensor")
-    )
+    #hass.async_create_task(
+    #     hass.config_entries.async_forward_entry_setups(entry, "alarm_control_panel")
+    #)
+    #hass.async_create_task(
+    #    hass.config_entries.async_forward_entry_setups(entry, "sensor")
+    #)
+    #hass.async_create_task(
+    #    hass.config_entries.async_forward_entry_setups(entry, "binary_sensor")
+    #)
     
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "switch")
-    )
-    
+    #hass.async_create_task(
+    #     hass.config_entries.async_forward_entry_setups(entry, "switch")
+#
+ #   )
+  # Setup das plataformas
+    await hass.config_entries.async_forward_entry_setups(
+        entry, 
+        ["alarm_control_panel", "sensor", "binary_sensor", "switch"]
+    )  
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):

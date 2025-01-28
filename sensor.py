@@ -13,16 +13,13 @@ from homeassistant.const import PERCENTAGE
 import logging
 from datetime import timedelta
 from .const import DOMAIN
+from homeassistant.components.alarm_control_panel import (
+    AlarmControlPanelState,
+)
 from homeassistant.const import (
     STATE_ON,
     STATE_OFF,
     STATE_UNKNOWN,
-    DEVICE_CLASS_BATTERY,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_ARMED_NIGHT,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_TRIGGERED,
-
 )
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -119,7 +116,7 @@ class AlarmBatterySensor(CoordinatorEntity, Entity):
         self._unique_id=sensor_id
         self._name = name
         self._device_id = device_id
-        self._device_class = DEVICE_CLASS_BATTERY
+        self._device_class = SensorDeviceClass.BATTERY
         self._attributes = {}
     @property
     def name(self):
@@ -145,7 +142,7 @@ class AlarmBatterySensor(CoordinatorEntity, Entity):
     
     @property
     def device_class(self):
-        return DEVICE_CLASS_BATTERY
+        return SensorDeviceClass.BATTERY
 
     @property
     def unit_of_measurement(self):
@@ -177,7 +174,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             # Verifique se o sensor já existe
             if unique_id not in created_sensors:
                 #_LOGGER.warn(sensor_data["device_class"])
-                if sensor_data["device_class"] == DEVICE_CLASS_BATTERY:
+                if sensor_data["device_class"] == SensorDeviceClass.BATTERY:
                    new_sensor = AlarmBatterySensor(coordinator, alarm_server, sensor_id, sensor_data["name"], unique_id,sensor_data["device_class"])
                    #_LOGGER.warn(new_sensor)
                 elif sensor_data["device_class"] == "ENUM":

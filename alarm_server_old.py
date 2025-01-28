@@ -62,7 +62,6 @@ class AlarmServer:
         self.port = port
         self.sock = None
         self._config_entry_id=config_entry_id
-        self._update_callbacks = set()
         self._unique_id = f"alarm_central_{host}:{port}"
         self.client = None
         self.running = False
@@ -96,7 +95,6 @@ class AlarmServer:
     def register_callback(self, callback_func):
         """Registra um callback para ser chamado quando houver uma atualização."""
         self._update_callbacks.add(callback_func)
-   
     def remove_callback(self, callback_func):
         """Remove um callback registrado."""
         self._update_callbacks.discard(callback_func)
@@ -106,15 +104,7 @@ class AlarmServer:
 
         """Notifica todos os callbacks registrados sobre a atualização."""
         for callback_func in self._update_callbacks:
-           self.hass.async_create_task(self._async_notify_callback(callback_func))
-    async def _async_notify_callback(self, callback_func):
-        """Executa o callback de forma assíncrona."""
-        try:
-            result = callback_func()
-            if asyncio.iscoroutine(result):
-                await result
-        except Exception as ex:
-            _LOGGER.error(f"Error executing callback: {ex}")       
+           self.hass.async_create_task(callback_func())
     @property
     def unique_id(self):
         if not hasattr(self, '_unique_id'):

@@ -5,23 +5,14 @@ import logging
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity,
     AlarmControlPanelEntityFeature,
+    AlarmControlPanelState,
     CodeFormat,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_CODE,
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_ARMED_NIGHT,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_TRIGGERED,
 )
-from homeassistant.components.alarm_control_panel.const import (
-    SUPPORT_ALARM_ARM_AWAY,
-    SUPPORT_ALARM_ARM_HOME,
-    SUPPORT_ALARM_ARM_NIGHT,
-    SUPPORT_ALARM_TRIGGER,
-)
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 import homeassistant.helpers.config_validation as cv
@@ -56,7 +47,7 @@ class AlarmPanel(AlarmControlPanelEntity):
         self._hass = hass
         self._alarm_server = alarm_server
         self._name = name
-        self._state = STATE_ALARM_DISARMED
+        self._state = AlarmControlPanelState.DISARMED
         self._code = code_required
         self._auto_bypass = auto_bypass
         self._attr_code_arm_required = code_arm_required
@@ -72,8 +63,7 @@ class AlarmPanel(AlarmControlPanelEntity):
 
     @property
     def supported_features(self):
-        return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_ARM_HOME | SUPPORT_ALARM_ARM_NIGHT | SUPPORT_ALARM_TRIGGER
-    
+        return AlarmControlPanelEntityFeature.ARM_HOME | AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.ARM_NIGHT 
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
         self.async_on_remove(
@@ -87,24 +77,24 @@ class AlarmPanel(AlarmControlPanelEntity):
         _LOGGER.warn('##############################message########################')
         _LOGGER.warn(f'## {message.status_alarm}')
         if message.alarm_sounding or message.fire_alarm:
-           self._attr_state = STATE_ALARM_TRIGGERED
+           self._attr_state = AlarmControlPanelState.TRIGGERED
            _LOGGER.warn("disparo de alarme sirene ativada")
         elif message.armed_away:
-           self._attr_state = STATE_ALARM_ARMED_AWAY
+           self._attr_state = AlarmControlPanelState.ARMED_AWAY
            _LOGGER.warn("mensagem armed_AWAY")
         elif message.armed_home:
-           self._attr_state = STATE_ALARM_ARMED_HOME
+           self._attr_state = AlarmControlPanelState.ARMED_HOME
            _LOGGER.warn("mensagem armed_home")
         elif message.armed_night:
-           self._attr_state = STATE_ALARM_ARMED_NIGHT
+           self._attr_state = AlarmControlPanelState.ARMED_NIGHT
            _LOGGER.warn("mensagem armed_night")
         else:
-           self._attr_state = STATE_ALARM_DISARMED
+           self._attr_state = AlarmControlPanelState.DISARMED
            _LOGGER.warn("mensagem disarmed")
         self.schedule_update_ha_state()
 
     async def async_alarm_disarm(self, code=None):
-        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_DISARMED):
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.DISARMED):
             return
         # Implementar lógica para desarmar o alarme
         self._alarm_server.send_command("disarm")
@@ -112,34 +102,26 @@ class AlarmPanel(AlarmControlPanelEntity):
         #self.async_write_ha_state()
 
     async def async_alarm_arm_away(self, code=None):
-        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_AWAY):
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_AWAY):
             return
-        # Implementar lógica para armar o alarme no modo "away"
         self._alarm_server.send_command("arm_away")
-        #self._state = STATE_ALARM_ARMED_AWAY
-        #self.async_write_ha_state()
+
 
     async def async_alarm_arm_home(self, code=None):
-        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_HOME):
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_HOME):
             return
         # Implementar lógica para armar o alarme no modo "home"
         self._alarm_server.send_command("arm_home")
-        #self._state = STATE_ALARM_ARMED_HOME
-        #self.async_write_ha_state()
 
     async def async_alarm_arm_night(self, code=None):
-        if self.code_arm_required and not self._validate_code(code, STATE_ALARM_ARMED_NIGHT):
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_NIGHT):
             return
         # Implementar lógica para armar o alarme no modo "night"
         self._alarm_server.send_command("arm_night")
-        #self._state = STATE_ALARM_ARMED_NIGHT
-        #self.async_write_ha_state()
 
     async def async_alarm_trigger(self, code=None):
         # Implementar lógica para disparar o alarme
         self._alarm_server.send_command("trigger")
-        #self._state = STATE_ALARM_TRIGGERED
-        #self.async_write_ha_state()
     def _validate_code(self, code, state):
         """Validate given code."""
         if self._code is None:
