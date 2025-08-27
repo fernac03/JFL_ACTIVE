@@ -1,0 +1,98 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Setup JFL Alarm",
+        "description": "Configure your JFL Alarm system",
+        "data": {
+          "host": "Host IP Address",
+          "port": "Port",
+          "name": "Name"
+        }
+      },
+      "options": {
+        "title": "Options",
+        "description": "Configure advanced options",
+        "data": {
+          "keep_alive_interval": "Keep Alive Interval (ms)",
+          "enable_keep_alive": "Enable Keep Alive",
+          "get_state_interval": "Get State Interval (ms)",
+          "enable_get_state": "Enable Get State"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the alarm system",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "JFL Alarm Options",
+        "description": "Configure advanced options",
+        "data": {
+          "keep_alive_interval": "Keep Alive Interval (ms)",
+          "enable_keep_alive": "Enable Keep Alive",
+          "get_state_interval": "Get State Interval (ms)",
+          "enable_get_state": "Enable Get State"
+        }
+      }
+    }
+  },
+  "services": {
+    "arm_away": {
+      "name": "Arm Away",
+      "description": "Arms the alarm system in away mode",
+      "fields": {
+        "code": {
+          "name": "Code",
+          "description": "User code (optional for JFL systems)"
+        }
+      }
+    },
+    "arm_home": {
+      "name": "Arm Home", 
+      "description": "Arms the alarm system in home/stay mode",
+      "fields": {
+        "code": {
+          "name": "Code",
+          "description": "User code (optional for JFL systems)"
+        }
+      }
+    },
+    "disarm": {
+      "name": "Disarm",
+      "description": "Disarms the alarm system",
+      "fields": {
+        "code": {
+          "name": "Code",
+          "description": "User code (optional for JFL systems)"
+        }
+      }
+    },
+    "pgm_on": {
+      "name": "Turn PGM On",
+      "description": "Turns on a specific PGM (Programmable Output)",
+      "fields": {
+        "pgm_number": {
+          "name": "PGM Number",
+          "description": "The PGM number to turn on (1-16)"
+        }
+      }
+    },
+    "pgm_off": {
+      "name": "Turn PGM Off", 
+      "description": "Turns off a specific PGM (Programmable Output)",
+      "fields": {
+        "pgm_number": {
+          "name": "PGM Number",
+          "description": "The PGM number to turn off (1-16)"
+        }
+      }
+    }
+  }
+}
