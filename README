@@ -1,0 +1,260 @@
+# Home Assistant JFL Alarm Integration
+
+Uma integração completa para Home Assistant que permite controlar centrais de alarme JFL via TCP socket.
+
+## Características
+
+- **Painel de Controle do Alarme**: Arma/desarma o sistema com estados completos
+- **Sensores de Zona**: Monitora todas as zonas configuradas na central
+- **Controle de PGMs**: Liga/desliga saídas programáveis (PGMs)
+- **Sensores do Sistema**: Bateria, partições, e estados especiais
+- **Detecção Automática do Modelo**: Identifica automaticamente o modelo da central JFL
+- **Comunicação TCP**: Protocolo nativo JFL via TCP socket
+- **Eventos em Tempo Real**: Recebe eventos da central instantaneamente
+
+## Modelos Suportados
+
+- Active-32 Duo
+- Active 20 Ultra/GPRS
+- Active 8 Ultra
+- Active 20 Ethernet
+- Active 100 Bus
+- Active 20 Bus
+- Active Full 32
+- Active 20
+- Active 8W
+- M-300+
+- M-300 Flex
+
+## Instalação
+
+### Método 1: HACS (Recomendado)
+
+1. Abra o HACS no Home Assistant
+2. Vá para "Integrations"
+3. Clique nos três pontos no canto superior direito
+4. Selecione "Custom repositories"
+5. Adicione `https://github.com/fernac03/JFL_ACTIVE` como repositório
+6. Selecione "Integration" como categoria
+7. Clique "Add"
+8. Procure por "JFL Active" e instale
+9. Reinicie o Home Assistant
+
+### Método 2: Instalação Manual
+
+1. Faça download dos arquivos da integração
+2. Copie a pasta `jfl_active` para `config/custom_components/`
+3. Reinicie o Home Assistant
+4. Vá para "Settings" > "Devices & Services"
+5. Clique em "Add Integration" e procure por "JFL Active"
+
+## Configuração
+
+### Configuração Inicial
+
+1. Vá para **Settings** > **Devices & Services**
+2. Clique em **Add Integration**
+3. Procure por **JFL Alarm**
+4. Configure:
+   - **Host**: Endereço IP do Host do Home assistant (ex: 192.168.1.100)
+   - **Port**: Porta TCP (padrão: 9999)
+   - **Name**: Nome da integração (ex: "Alarme Casa")
+
+### Opções Avançadas
+
+- **Keep Alive Interval**: Intervalo para envio de keep alive (padrão: 30000ms)
+- **Enable Keep Alive**: Habilita envio automático de keep alive
+- **Get State Interval**: Intervalo para solicitação de status (padrão: 5000ms)
+- **Enable Get State**: Habilita solicitação automática de status
+
+## Entidades Criadas
+
+### Painel de Controle do Alarme
+- `alarm_control_panel.jfl_active_alarm`
+  - Estados: Desarmado, Armado Casa, Armado Ausente, Disparando
+  - Atributos: alarme_incendio, alarme_medico, panico, eletrificador, zonas_abertas
+
+### Sensores Binários
+- **Zonas**: `binary_sensor.jfl_active_zona_X` (para cada zona)
+- **Sistema**: 
+  - `binary_sensor.jfl_active_fire_alarm`
+  - `binary_sensor.jfl_active_medical_alarm`
+  - `binary_sensor.jfl_active_panic`
+  - `binary_sensor.jfl_active_eletrificador`
+
+### Sensores
+- **Bateria**: `sensor.jfl_active_battery` (nível em %)
+- **Partições**: `sensor.jfl_active_particao_X` (para cada partição)
+
+### Switches (PGMs)
+- `switch.jfl_active_pgm_X` (para cada PGM disponível)
+
+## Serviços Disponíveis
+
+### jfl_active.arm_away
+Arma o sistema no modo "ausente"
+```yaml
+service: jfl_active.arm_away
+target:
+  entity_id: alarm_control_panel.jfl_active_alarm
+data:
+  code: "1234"  # opcional
+```
+
+### jfl_alarm.arm_home
+Arma o sistema no modo "casa"
+```yaml
+service: jfl_active.arm_home
+target:
+  entity_id: alarm_control_panel.jfl_active_alarm
+data:
+  code: "1234"  # opcional
+```
+
+### jfl_alarm.disarm
+Desarma o sistema
+```yaml
+service: jfl_active.disarm
+target:
+  entity_id: alarm_control_panel.jfl_active_alarm
+data:
+  code: "1234"  # opcional
+```
+
+### jfl_alarm.pgm_on
+Liga uma PGM específica
+```yaml
+service: jfl_active.pgm_on
+data:
+  pgm_number: 1
+```
+
+### jfl_active.pgm_off
+Desliga uma PGM específica
+```yaml
+service: jfl_active.pgm_off
+data:
+  pgm_number: 1
+```
+
+## Automatizações de Exemplo
+
+### Notificação quando zona é violada
+```yaml
+alias: "Notificar Zona Violada"
+trigger:
+  - platform: state
+    entity_id: binary_sensor.jfl_active_zona_1
+    to: "on"
+action:
+  - service: notify.mobile_app_seu_telefone
+    data:
+      message: "Zona 1 foi violada!"
+      title: "Alarme"
+```
+
+### Ligar PGM quando armar o alarme
+```yaml
+alias: "Ligar Eletrificador ao Armar"
+trigger:
+  - platform: state
+    entity_id: alarm_control_panel.jfl_active_alarm
+    to: "armed_away"
+action:
+  - service: jfl_active.pgm_on
+    data:
+      pgm_number: 1
+```
+
+### Desarmar automaticamente com presença
+```yaml
+alias: "Desarmar com Presença"
+trigger:
+  - platform: state
+    entity_id: person.voce
+    to: "home"
+condition:
+  - condition: state
+    entity_id: alarm_control_panel.jfl_active_alarm
+    state: "armed_away"
+action:
+  - service: jfl_active.disarm
+```
+
+## Configuração da Central JFL
+
+1. Configure a central para enviar o report para o ip do Home assitant na porta 9999
+
+## Solução de Problemas
+
+### Central não conecta
+1. Confirme o IP e porta nas configurações
+2. Verifique logs do Home Assistant para erros de conexão
+
+### Entidades não aparecem
+1. Aguarde alguns minutos após configuração inicial
+2. Force atualização das entidades
+3. Verifique se o modelo da central foi detectado corretamente
+4. Reinicie a integração se necessário
+
+### PGMs não funcionam
+1. Confirme que o modelo suporta PGMs
+2. Verifique se o número da PGM está correto (1-16)
+3. Teste comandos via Developer Tools
+4. Verifique logs para mensagens de erro
+
+## Logs e Debug
+
+Para habilitar logs detalhados, adicione ao `configuration.yaml`:
+
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.jfl_active: debug
+```
+
+## Estrutura de Arquivos
+
+```
+custom_components/jfl_active/
+├── __init__.py
+├── alarm_control_panel.py
+├── binary_sensor.py
+├── config_flow.py
+├── const.py
+├── coordinator.py
+├── jfl_protocol.py
+├── manifest.json
+├── sensor.py
+├── services.yaml
+├── strings.json
+└── switch.py
+```
+
+## Contribuições
+
+Contribuições são bem-vindas! Por favor:
+
+1. Faça fork do repositório
+2. Crie uma branch para sua feature
+3. Faça commit das mudanças
+4. Abra um Pull Request
+
+## Licença
+
+Este projeto está licenciado sob a Licença MIT - veja o arquivo LICENSE para detalhes.
+
+## Suporte
+
+Para suporte técnico:
+- Abra uma issue no GitHub
+- Inclua logs detalhados
+- Descreva o modelo da central e configuração
+- Forneça passos para reproduzir o problema
+
+---
+
+**Desenvolvido por**: Carlos José Fernandes  
+**Email**: fernac03@gmail.com  
+**Versão**: 2.0.0
