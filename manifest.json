@@ -1,0 +1,12 @@
+{
+  "domain": "jfl_active",
+  "name": "JFL Active",
+  "codeowners": ["@fernac03"],
+  "config_flow": true,
+  "documentation": "https://github.com/fernac03/jfl_active",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/fernac03/jfl_active/issues",
+  "requirements": [],
+  "version": "2.0.0"
+}
