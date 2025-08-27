@@ -1,0 +1,75 @@
+arm_away:
+  name: "Arm Away"
+  description: "Arms the alarm system in away mode"
+  target:
+    entity:
+      domain: alarm_control_panel
+      integration: jfl_alarm
+  fields:
+    code:
+      name: "Code"
+      description: "User code (optional for JFL systems)"
+      required: false
+      selector:
+        text:
+          type: password
+
+arm_home:
+  name: "Arm Home"
+  description: "Arms the alarm system in home/stay mode"
+  target:
+    entity:
+      domain: alarm_control_panel
+      integration: jfl_alarm
+  fields:
+    code:
+      name: "Code"
+      description: "User code (optional for JFL systems)"
+      required: false
+      selector:
+        text:
+          type: password
+
+disarm:
+  name: "Disarm"
+  description: "Disarms the alarm system"
+  target:
+    entity:
+      domain: alarm_control_panel
+      integration: jfl_alarm
+  fields:
+    code:
+      name: "Code"
+      description: "User code (optional for JFL systems)"
+      required: false
+      selector:
+        text:
+          type: password
+
+pgm_on:
+  name: "Turn PGM On"
+  description: "Turns on a specific PGM (Programmable Output)"
+  fields:
+    pgm_number:
+      name: "PGM Number"
+      description: "The PGM number to turn on (1-16)"
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 16
+          mode: box
+
+pgm_off:
+  name: "Turn PGM Off"
+  description: "Turns off a specific PGM (Programmable Output)"
+  fields:
+    pgm_number:
+      name: "PGM Number"
+      description: "The PGM number to turn off (1-16)"
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 16
+          mode: box
