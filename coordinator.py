@@ -7,7 +7,6 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -29,7 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 class JFLAlarmDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the JFL Alarm system."""
 
-    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    def __init__(self, hass, config_entry: ConfigEntry) -> None:
         """Initialize."""
         self.config_entry = config_entry
         self.host = config_entry.data[CONF_HOST]

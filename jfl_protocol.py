@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import socket
 from typing import Any, Callable
 
 from .const import JFL_MODELS, EVENT_CODES, ZONE_STATUS_MAP
@@ -21,13 +20,11 @@ class JFLProtocol:
         self.server = None
         self.connected_clients = set()
         self.client_start_bytes = {}
-        
-        # Callbacks
+
         self._event_callback = None
         self._model_callback = None
         self._status_callback = None
-        
-        # Current state
+
         self.model_info = None
         self.current_zones = {}
         self.current_pgms = {}
@@ -49,7 +46,9 @@ class JFLProtocol:
         """Start TCP server."""
         try:
             self.server = await asyncio.start_server(
-                self._handle_client, self.host, self.port
+                self._handle_client,
+                self.host,
+                self.port,
             )
             _LOGGER.info("JFL TCP server started on %s:%s", self.host, self.port)
         except Exception as err:
@@ -61,79 +60,120 @@ class JFLProtocol:
         if self.server:
             self.server.close()
             await self.server.wait_closed()
+            self.server = None
             _LOGGER.info("JFL TCP server stopped")
 
-    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def _handle_client(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
         """Handle client connection."""
         client_addr = writer.get_extra_info("peername")
         self.connected_clients.add(writer)
         _LOGGER.info("Client connected: %s", client_addr)
-        
+
         try:
             while True:
                 data = await reader.read(1024)
+
                 if not data:
                     break
-                
-                _LOGGER.debug("Received %s bytes from %s: %s", len(data), client_addr, data.hex())
+
+                _LOGGER.debug(
+                    "Received %s bytes from %s: %s",
+                    len(data),
+                    client_addr,
+                    data.hex(),
+                )
                 await self._process_packet(data, writer)
-                
+
         except asyncio.CancelledError:
             pass
+        except ConnectionResetError as err:
+            _LOGGER.warning("Client connection reset %s: %s", client_addr, err)
         except Exception as err:
             _LOGGER.error("Error handling client %s: %s", client_addr, err)
         finally:
             self.connected_clients.discard(writer)
             self.client_start_bytes.pop(writer, None)
-            writer.close()
-            await writer.wait_closed()
+
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+
             _LOGGER.info("Client disconnected: %s", client_addr)
 
-    async def _process_packet(self, data: bytes, writer: asyncio.StreamWriter) -> None:
+    async def _process_packet(
+        self,
+        data: bytes,
+        writer: asyncio.StreamWriter,
+    ) -> None:
         """Process received packet."""
         packet_size = len(data)
         start_byte = data[0] if data else 0x7B
         self.client_start_bytes[writer] = start_byte
-        
+
         response = None
-        
+
         if packet_size == 5:
-            # Heartbeat
-            response = self._create_response([start_byte, 0x06, 0x01, 0x40, 0x01])
-            
+            response = self._create_response(
+                [start_byte, 0x06, 0x01, 0x40, 0x01]
+            )
+
         elif packet_size == 24:
-            # Event packet
             event_data = self._process_event_24(data)
+
             if event_data and self._event_callback:
                 self._event_callback(event_data)
-            
-            response = self._create_response([
-                start_byte, 0x0A, 0x01, 0x24, 0x01,
-                data[17], data[18], data[19], data[20]
-            ])
-            
+
+            response = self._create_response(
+                [
+                    start_byte,
+                    0x0A,
+                    0x01,
+                    0x24,
+                    0x01,
+                    data[17],
+                    data[18],
+                    data[19],
+                    data[20],
+                ]
+            )
+
         elif packet_size == 102:
-            # Status 102 - Model identification
             model_info = self._identify_model(data)
+
             if model_info and self._model_callback:
                 self.model_info = model_info
                 self._model_callback(model_info)
-            
-            response = self._create_response([start_byte, 0x07, 0x01, 0x21, 0x01, 0x01])
-            
+
+            response = self._create_response(
+                [start_byte, 0x07, 0x01, 0x21, 0x01, 0x01]
+            )
+
         elif packet_size >= 118:
-            # Status 118 - Full status update
             status_data = self._process_status_118(data)
+
             if status_data and self._status_callback:
                 self._status_callback(status_data)
-            
-            response = self._create_response([start_byte, 0x06, 0x01, 0x40, 0x01])
-            
+
+            response = self._create_response(
+                [start_byte, 0x06, 0x01, 0x40, 0x01]
+            )
+
         else:
-            # Unknown packet
-            _LOGGER.warning("Unknown packet size: %s bytes", packet_size)
-            response = self._create_response([start_byte, 0x06, 0x01, 0x40, 0x01])
-        
+            _LOGGER.warning(
+                "Unknown packet size: %s bytes. Raw: %s",
+                packet_size,
+                data.hex(),
+            )
+            response = self._create_response(
+                [start_byte, 0x06, 0x01, 0x40, 0x01]
+            )
+
         if response:
             writer.write(response)
             await writer.drain()
@@ -142,18 +182,20 @@ class JFLProtocol:
     def _create_response(self, message: list[int]) -> bytes:
         """Create response message with checksum."""
         checksum = 0
+
         for byte in message:
             checksum ^= byte
+
         return bytes(message + [checksum])
 
     def _identify_model(self, data: bytes) -> dict[str, Any] | None:
         """Identify JFL model from packet."""
         if len(data) < 42:
             return None
-        
+
         model_byte = data[41]
         model_info = JFL_MODELS.get(model_byte)
-        
+
         if model_info:
             return {
                 "modelo": model_info["name"],
@@ -163,7 +205,7 @@ class JFLProtocol:
                 "numParticoes": model_info["particoes"],
                 "modelByte": f"0x{model_byte:02X}",
             }
-        
+
         return {
             "modelo": f"Unknown Model (0x{model_byte:02X})",
             "temEletrificador": False,
@@ -177,19 +219,21 @@ class JFLProtocol:
         """Process 24-byte event packet."""
         if len(data) < 12:
             return None
-        
-        # Extract event code from bytes 8-11
+
         event_code = data[8:12].decode("ascii", errors="ignore")
         zone = None
-        
+
         if len(data) >= 16:
             zone = data[12:16].decode("ascii", errors="ignore").strip()
-        
-        event_info = EVENT_CODES.get(event_code, {
-            "state": "UNKNOWN_EVENT",
-            "description": f"Unknown event: {event_code}"
-        })
-        
+
+        event_info = EVENT_CODES.get(
+            event_code,
+            {
+                "state": "UNKNOWN_EVENT",
+                "description": f"Unknown event: {event_code}",
+            },
+        )
+
         result = {
             "event_code": event_code,
             "zone": zone,
@@ -204,18 +248,16 @@ class JFLProtocol:
             "panic": False,
             "eletrificador": False,
         }
-        
-        # Update states based on event
+
         state = event_info["state"]
+
         if state == "ARMED_STAY":
             result["armed_away"] = True
         elif state in ["ARMED_HOME"]:
             result["armed_home"] = True
+
             if event_code == "3407":
                 result["eletrificador"] = True
-        elif state == "DISARMED":
-            # All armed states become false
-            pass
         elif state == "FIRE":
             result["fire_alarm"] = True
         elif state == "EMERGENCY":
@@ -224,7 +266,7 @@ class JFLProtocol:
             result["panic"] = True
         elif state == "ALARM_SOUNDING":
             result["alarm_sounding"] = True
-        
+
         return result
 
     def _process_status_118(self, data: bytes) -> dict[str, Any]:
@@ -234,17 +276,17 @@ class JFLProtocol:
             "pgms": {},
             "sensors": {},
         }
-        
+
         if not self.model_info:
             return result
-        
+
         num_zonas = self.model_info.get("numZonas", 0)
         num_pgms = self.model_info.get("numPgms", 0)
-        
-        # Process battery status (byte 12)
+
         if len(data) > 12:
             battery_byte = data[12]
             battery_info = self._interpret_battery_level(battery_byte)
+
             result["sensors"]["bateria"] = {
                 "name": "Bateria",
                 "state": battery_info["percentage"],
@@ -252,35 +294,38 @@ class JFLProtocol:
                 "description": battery_info["description"],
                 "raw_value": battery_byte,
             }
-        
-        # Process PGMs (byte 13 for PGMs 1-8, byte 116 for PGMs 9-16)
+
         if len(data) > 13 and num_pgms > 0:
             self._process_pgm_status(data[13], 13, result["pgms"], num_pgms)
-        
+
         if len(data) > 116 and num_pgms > 8:
             self._process_pgm_status(data[116], 116, result["pgms"], num_pgms)
-        
-        # Process zones (50 bytes starting at position 31)
+
         if len(data) > 81 and num_zonas > 0:
             zona = 1
+
             for i in range(50):
                 if zona > num_zonas:
                     break
-                
+
                 byte_data = data[31 + i]
-                # High nibble (4 bits)
                 high = (byte_data >> 4) & 0x0F
-                # Low nibble (4 bits)
                 low = byte_data & 0x0F
-                
+
                 if zona <= num_zonas:
-                    result["zones"][f"zona_{zona}"] = self._get_zone_status(zona, high)
+                    result["zones"][f"zona_{zona}"] = self._get_zone_status(
+                        zona,
+                        high,
+                    )
                     zona += 1
-                
+
                 if zona <= num_zonas:
-                    result["zones"][f"zona_{zona}"] = self._get_zone_status(zona, low)
+                    result["zones"][f"zona_{zona}"] = self._get_zone_status(
+                        zona,
+                        low,
+                    )
                     zona += 1
-        
+
         return result
 
     def _interpret_battery_level(self, battery_byte: int) -> dict[str, Any]:
@@ -297,24 +342,29 @@ class JFLProtocol:
             percentage, description = 20, "Bateria muito baixa"
         else:
             percentage, description = 0, "Bateria crítica"
-        
+
         return {"percentage": percentage, "description": description}
 
-    def _process_pgm_status(self, byte_value: int, position: int, pgms_dict: dict, num_pgms: int) -> None:
+    def _process_pgm_status(
+        self,
+        byte_value: int,
+        position: int,
+        pgms_dict: dict,
+        num_pgms: int,
+    ) -> None:
         """Process PGM status from byte."""
         binary = f"{byte_value:08b}"
-        
+
         for i in range(8):
             if position == 116:
-                # Byte 116: PGMs 9-16
                 pgm_number = 9 + i
             else:
-                # Byte 13: PGMs 1-8
                 pgm_number = 1 + i
-            
+
             if pgm_number <= num_pgms:
-                bit = int(binary[7 - i])  # Read from right to left
+                bit = int(binary[7 - i])
                 pgm_id = f"pgm_{pgm_number}"
+
                 pgms_dict[pgm_id] = {
                     "name": f"PGM {pgm_number}",
                     "state": "ON" if bit else "OFF",
@@ -322,13 +372,15 @@ class JFLProtocol:
                     "pgm_number": pgm_number,
                 }
 
-    def _get_zone_status(self, zone_number: int, status_value: int) -> dict[str, Any]:
+    def _get_zone_status(
+        self,
+        zone_number: int,
+        status_value: int,
+    ) -> dict[str, Any]:
         """Get zone status from status value."""
         status_name = ZONE_STATUS_MAP.get(status_value, "unknown")
-        
-        # Determine if zone is "open" based on status
-        is_open = status_value in [2, 4, 5, 7]  # triggered, short_circuit, tamper_open, open
-        
+        is_open = status_value in [2, 4, 5, 7]
+
         return {
             "name": f"Zona {zone_number}",
             "state": "open" if is_open else "closed",
@@ -342,14 +394,17 @@ class JFLProtocol:
         if not self.connected_clients:
             _LOGGER.warning("No clients connected to send command")
             return
-        
+
         for writer in list(self.connected_clients):
             try:
                 start_byte = self.client_start_bytes.get(writer, 0x7B)
                 message = self._create_response([start_byte] + command)
+
                 writer.write(message)
                 await writer.drain()
+
                 _LOGGER.debug("Command sent to client: %s", message.hex())
+
             except Exception as err:
                 _LOGGER.error("Failed to send command to client: %s", err)
                 self.connected_clients.discard(writer)

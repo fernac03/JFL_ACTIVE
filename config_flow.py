@@ -24,13 +24,15 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_HOST): str,
+        vol.Required(CONF_HOST, default="0.0.0.0"): str,
         vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
         vol.Optional(CONF_NAME, default="JFL Alarm"): str,
     }
 )
+
 
 STEP_OPTIONS_DATA_SCHEMA = vol.Schema(
     {
@@ -60,31 +62,33 @@ class JFLAlarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
-        
+
         if user_input is not None:
-            # Validate the host and port
             try:
-                await self._test_connection(user_input[CONF_HOST], user_input[CONF_PORT])
-                
-                # Check if already configured
+                await self.hass.async_add_executor_job(
+                    self._test_connection,
+                    user_input[CONF_HOST],
+                    user_input[CONF_PORT],
+                )
+
                 await self.async_set_unique_id(
                     f"{user_input[CONF_HOST]}_{user_input[CONF_PORT]}"
                 )
                 self._abort_if_unique_id_configured()
-                
+
                 self._user_data = user_input
                 return await self.async_step_options()
-                
+
             except CannotConnect:
                 errors["base"] = "cannot_connect"
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
-        
+
         return self.async_show_form(
-            step_id="user", 
-            data_schema=STEP_USER_DATA_SCHEMA, 
-            errors=errors
+            step_id="user",
+            data_schema=STEP_USER_DATA_SCHEMA,
+            errors=errors,
         )
 
     async def async_step_options(
@@ -92,32 +96,34 @@ class JFLAlarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle the options step."""
         if user_input is not None:
-            # Combine user data with options
             config_data = {**self._user_data, **user_input}
-            
+
             return self.async_create_entry(
                 title=config_data[CONF_NAME],
                 data=config_data,
             )
-        
+
         return self.async_show_form(
             step_id="options",
             data_schema=STEP_OPTIONS_DATA_SCHEMA,
         )
 
-    async def _test_connection(self, host: str, port: int) -> None:
-        """Test if we can connect to the host."""
+    def _test_connection(self, host: str, port: int) -> None:
+        """Test if Home Assistant can listen on the host and port."""
+        sock = None
+
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(5)
-            result = sock.connect_ex((host, port))
-            sock.close()
-            
-            if result != 0:
-                raise CannotConnect("Cannot connect to host")
-                
-        except socket.error as err:
-            raise CannotConnect(f"Socket error: {err}") from err
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((host, port))
+
+        except OSError as err:
+            raise CannotConnect(f"Cannot bind to {host}:{port}: {err}") from err
+
+        finally:
+            if sock is not None:
+                sock.close()
 
     @staticmethod
     def async_get_options_flow(
@@ -132,7 +138,7 @@ class JFLAlarmOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -141,17 +147,16 @@ class JFLAlarmOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        # Get current values
-        current_keep_alive_interval = self.config_entry.data.get(
+        current_keep_alive_interval = self._config_entry.data.get(
             CONF_KEEP_ALIVE_INTERVAL, DEFAULT_KEEP_ALIVE_INTERVAL
         )
-        current_enable_keep_alive = self.config_entry.data.get(
+        current_enable_keep_alive = self._config_entry.data.get(
             CONF_ENABLE_KEEP_ALIVE, True
         )
-        current_get_state_interval = self.config_entry.data.get(
+        current_get_state_interval = self._config_entry.data.get(
             CONF_GET_STATE_INTERVAL, DEFAULT_GET_STATE_INTERVAL
         )
-        current_enable_get_state = self.config_entry.data.get(
+        current_enable_get_state = self._config_entry.data.get(
             CONF_ENABLE_GET_STATE, True
         )
 
@@ -176,4 +181,4 @@ class JFLAlarmOptionsFlowHandler(config_entries.OptionsFlow):
 
 
 class CannotConnect(Exception):
-    """Error to indicate we cannot connect."""
+    """Error to indicate we cannot bind/listen."""

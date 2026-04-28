@@ -1,6 +1,6 @@
 """Constants for the JFL Alarm integration."""
 
-DOMAIN = "jfl_alarm"
+DOMAIN = "jfl_active"
 
 # Configuration
 CONF_KEEP_ALIVE_INTERVAL = "keep_alive_interval"

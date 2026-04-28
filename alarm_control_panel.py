@@ -7,17 +7,10 @@ from typing import Any
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity,
     AlarmControlPanelEntityFeature,
+    AlarmControlPanelState,
     CodeFormat,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_PENDING,
-    STATE_ALARM_TRIGGERED,
-)
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -28,11 +21,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up JFL alarm control panel from a config entry."""
     coordinator: JFLAlarmDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
-    
+
     async_add_entities([JFLAlarmControlPanel(coordinator, entry)])
 
 
@@ -49,14 +42,12 @@ class JFLAlarmControlPanel(CoordinatorEntity, AlarmControlPanelEntity):
         self._config_entry = config_entry
         self._attr_name = f"{coordinator.name} Alarm"
         self._attr_unique_id = f"{config_entry.entry_id}_alarm"
-        
-        # Set supported features
+
         self._attr_supported_features = (
             AlarmControlPanelEntityFeature.ARM_HOME
             | AlarmControlPanelEntityFeature.ARM_AWAY
         )
-        
-        # Code format is not required for JFL alarms
+
         self._attr_code_format = CodeFormat.NUMBER
         self._attr_code_arm_required = False
 
@@ -74,33 +65,33 @@ class JFLAlarmControlPanel(CoordinatorEntity, AlarmControlPanelEntity):
         }
 
     @property
-    def state(self) -> str | None:
+    def alarm_state(self) -> AlarmControlPanelState | None:
         """Return the state of the alarm."""
         if not self.coordinator.data:
             return None
-        
+
         alarm_state = self.coordinator.data["alarm_state"]["state"]
-        
+
         state_mapping = {
-            "DISARMED": STATE_ALARM_DISARMED,
-            "ARMED_HOME": STATE_ALARM_ARMED_HOME,
-            "ARMED_STAY": STATE_ALARM_ARMED_HOME,
-            "ARMED_AWAY": STATE_ALARM_ARMED_AWAY,
-            "ALARM_SOUNDING": STATE_ALARM_TRIGGERED,
-            "PENDING": STATE_ALARM_PENDING,
+            "DISARMED": AlarmControlPanelState.DISARMED,
+            "ARMED_HOME": AlarmControlPanelState.ARMED_HOME,
+            "ARMED_STAY": AlarmControlPanelState.ARMED_HOME,
+            "ARMED_AWAY": AlarmControlPanelState.ARMED_AWAY,
+            "ALARM_SOUNDING": AlarmControlPanelState.TRIGGERED,
+            "PENDING": AlarmControlPanelState.PENDING,
         }
-        
-        return state_mapping.get(alarm_state, STATE_ALARM_DISARMED)
+
+        return state_mapping.get(alarm_state, AlarmControlPanelState.DISARMED)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
         if not self.coordinator.data:
             return {}
-        
+
         alarm_state = self.coordinator.data["alarm_state"]
         model_info = self.coordinator.data["model_info"]
-        
+
         attributes = {
             "fire_alarm": alarm_state.get("fire_alarm", False),
             "medical_alarm": alarm_state.get("medical_alarm", False),
@@ -111,17 +102,17 @@ class JFLAlarmControlPanel(CoordinatorEntity, AlarmControlPanelEntity):
             "pgms_count": model_info.get("numPgms", 0),
             "partitions_count": model_info.get("numParticoes", 0),
         }
-        
-        # Add zone status
+
         zones = self.coordinator.data.get("zones", {})
         open_zones = [
-            zone_data["name"] 
-            for zone_data in zones.values() 
+            zone_data["name"]
+            for zone_data in zones.values()
             if zone_data.get("state") == "open"
         ]
+
         if open_zones:
             attributes["open_zones"] = open_zones
-        
+
         return attributes
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:
