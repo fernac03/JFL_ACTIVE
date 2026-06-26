@@ -36,9 +36,9 @@ class JFLAlarmDataUpdateCoordinator(DataUpdateCoordinator):
         self.name = config_entry.data.get(CONF_NAME, "JFL Alarm")
         
         self.keep_alive_interval = config_entry.data.get(CONF_KEEP_ALIVE_INTERVAL, 30000) / 1000
-        self.enable_keep_alive = config_entry.data.get(CONF_ENABLE_KEEP_ALIVE, True)
+        self.enable_keep_alive = config_entry.data.get(CONF_ENABLE_KEEP_ALIVE, False)
         self.get_state_interval = config_entry.data.get(CONF_GET_STATE_INTERVAL, 5000) / 1000
-        self.enable_get_state = config_entry.data.get(CONF_ENABLE_GET_STATE, True)
+        self.enable_get_state = config_entry.data.get(CONF_ENABLE_GET_STATE, False)
         
         # Initialize protocol handler
         self.protocol = JFLProtocol(self.host, self.port)
