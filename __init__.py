@@ -60,6 +60,7 @@ PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
+    Platform.SWITCH,
 ]
 queue1 = Queue()
 
@@ -168,6 +169,7 @@ class JFLWatcher(threading.Thread):
         self.programming_mode = False
         self.ready = True
         self.zone_bypassed = False
+        self.pgm_status = 0
         self.partition_status = {}
     def bitExtracted(self, number, k, p):
         return ( ((1 << k) - 1)  &  (number >> (p-1) ) )
@@ -453,6 +455,8 @@ class JFLWatcher(threading.Thread):
                               self.battery_low = True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            _LOGGER.debug("PGM  %s", data[13])
+                           self.pgm_status = data[13]
+                           dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            ### status das particoes
                            # NOTA: o offset correto para o array de particoes neste
                            # pacote periodico e data[14] em diante - nao data[13],
