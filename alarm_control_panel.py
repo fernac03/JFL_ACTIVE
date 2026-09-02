@@ -56,7 +56,13 @@ async def async_setup_entry(
         code_required=arm_options[CONF_CODE_REQUIRED],
         alt_night_mode=arm_options[CONF_ALT_NIGHT_MODE],
     )
-    async_add_entities([entity])
+    entity_p1 = JflPartitionAlarmPanel(
+        client, 1, arm_options[CONF_CODE_ARM_REQUIRED], arm_options[CONF_CODE_REQUIRED]
+    )
+    entity_p2 = JflPartitionAlarmPanel(
+        client, 2, arm_options[CONF_CODE_ARM_REQUIRED], arm_options[CONF_CODE_REQUIRED]
+    )
+    async_add_entities([entity, entity_p1, entity_p2])
 
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(
@@ -279,6 +285,95 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         if keypress:
             self._client.send(keypress)
             
+    def _validate_code(self, code, state):
+        """Validate given code."""
+        if self._code is None:
+            return True
+        if isinstance(self._code, str):
+            alarm_code = self._code
+        else:
+            alarm_code = self._code.render(
+                parse_result=False, from_state=self._state, to_state=state
+            )
+        check = not alarm_code or code == alarm_code
+        if not check:
+            _LOGGER.warn("Invalid code given for %s", state)
+        return check
+
+
+class JflPartitionAlarmPanel(AlarmControlPanelEntity):
+    """Representation of a single JFL Active partition (arm/disarm only).
+
+    JFL Active panels with more than one partition let each partition be
+    armed/disarmed independently, but the original AlarmDecoderAlarmPanel
+    entity only exposes a single, global armed state for the whole panel.
+    This entity sends commands scoped to one partition (target byte =
+    partition number) and reads that partition's own status from
+    message.partition_status (see the accompanying __init__.py fix that
+    makes setPartitionStatus() actually store per-partition state).
+    """
+
+    _attr_should_poll = False
+    _attr_code_format = CodeFormat.NUMBER
+    _attr_supported_features = (
+        AlarmControlPanelEntityFeature.ARM_HOME
+        | AlarmControlPanelEntityFeature.ARM_AWAY
+    )
+
+    def __init__(self, client, partition_number, code_arm_required, code_required):
+        """Initialize the partition alarm panel."""
+        self._client = client
+        self._partition_number = partition_number
+        self._code = code_required
+        self._attr_code_arm_required = code_arm_required
+        self._attr_name = f"Alarme Particao {partition_number}"
+        self._attr_unique_id = f"JFLActive_PARTITION_{partition_number}"
+
+    async def async_added_to_hass(self) -> None:
+        """Register callbacks."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_PANEL_MESSAGE, self._message_callback
+            )
+        )
+
+    def _message_callback(self, message):
+        """Handle received messages using this partition's own status."""
+        state = message.partition_status.get(self._partition_number)
+        if state is None:
+            return
+        self._attr_alarm_state = state
+        self.schedule_update_ha_state()
+
+    def checksum(self, dados):
+        checksum = 0
+        for n in dados:
+            checksum ^= n
+        return checksum
+
+    def _send(self, cmd):
+        message = bytes([0x06, 0x01, cmd, self._partition_number])
+        check = self.checksum(bytes([0x7B]) + message)
+        self._client.put(bytes([0x7B]) + message + check.to_bytes(1, "big"))
+
+    def alarm_disarm(self, code: str | None = None) -> None:
+        """Send disarm command for this partition."""
+        if not self._validate_code(code, AlarmControlPanelState.DISARMED):
+            return
+        self._send(0x4F)
+
+    def alarm_arm_away(self, code: str | None = None) -> None:
+        """Send arm away command for this partition."""
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_AWAY):
+            return
+        self._send(0x4E)
+
+    def alarm_arm_home(self, code: str | None = None) -> None:
+        """Send arm home command for this partition."""
+        if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_HOME):
+            return
+        self._send(0x4E)
+
     def _validate_code(self, code, state):
         """Validate given code."""
         if self._code is None:
