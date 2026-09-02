@@ -168,6 +168,7 @@ class JFLWatcher(threading.Thread):
         self.programming_mode = False
         self.ready = True
         self.zone_bypassed = False
+        self.zone_problems = {}
     def bitExtracted(self, number, k, p):
         return ( ((1 << k) - 1)  &  (number >> (p-1) ) )
     def setPartitionStatus(self,part,status):
@@ -225,18 +226,33 @@ class JFLWatcher(threading.Thread):
              dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
         elif status == 3:
              self.text = "Zona " + str(zone) + " Sensor sem Comunicacao"
+             self.zone_problems.setdefault(zone, {})["no_comm"] = True
+             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         elif status == 4:
              self.text = "Zona " + str(zone) + " Zona Em curto"
+             self.zone_problems.setdefault(zone, {})["short_circuit"] = True
+             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         elif status == 5:
              self.text = "Zona " + str(zone) + " Tamper Aberto"
+             self.zone_problems.setdefault(zone, {})["tamper"] = True
+             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         elif status == 6:
              self.text = "Zona " + str(zone) + " Bateria Baixa"
+             self.zone_problems.setdefault(zone, {})["low_battery"] = True
+             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         elif status == 7:
              dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
              self.text = "Zona " + str(zone) + " Zona Aberta"
              dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
         elif status == 8:
              dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, zone)
+             self.zone_problems[zone] = {
+                 "no_comm": False,
+                 "short_circuit": False,
+                 "tamper": False,
+                 "low_battery": False,
+             }
+             dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         return
 
     def run(self):
