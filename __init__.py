@@ -60,6 +60,7 @@ PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
+    Platform.SWITCH,
 ]
 queue1 = Queue()
 
@@ -168,53 +169,45 @@ class JFLWatcher(threading.Thread):
         self.programming_mode = False
         self.ready = True
         self.zone_bypassed = False
-        self.zone_problems = {}
+        self.pgm_status = 0
+        self.partition_status = {}
     def bitExtracted(self, number, k, p):
         return ( ((1 << k) - 1)  &  (number >> (p-1) ) )
     def setPartitionStatus(self,part,status):
-        if status =="00":
+        """Decode and store the armed/disarmed/triggered status for a single
+        partition, and dispatch an update when it actually changes.
+
+        Previously this method only logged the decoded status and never
+        stored it anywhere, so no entity could ever reflect a partition's
+        real state (see PR description)."""
+        state_map = {
+            "01": AlarmControlPanelState.DISARMED,
+            "02": AlarmControlPanelState.ARMED_AWAY,
+            "03": AlarmControlPanelState.ARMED_HOME,
+            "04": AlarmControlPanelState.DISARMED,
+            "81": AlarmControlPanelState.TRIGGERED,
+            "82": AlarmControlPanelState.TRIGGERED,
+            "83": AlarmControlPanelState.TRIGGERED,
+            "84": AlarmControlPanelState.TRIGGERED,
+        }
+        if status == "00":
            return
-        elif status =="01":
-           if self._attr_state != AlarmControlPanelState.DISARMED:
-              _LOGGER.warn('status  particao desarmado') 
-              #self._attr_state = STATE_ALARM_DISARMED
-              #self.alarm_sounding = False
-              #self.fire_alarm = False
-              #dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)  
-        elif status == "02":
-           if ((self._attr_state != AlarmControlPanelState.ARMED_AWAY) and (self._attr_state != AlarmControlPanelState.ARMED_HOME)) :
-              _LOGGER.warn('status  particao armado')
-              #self._attr_state = STATE_ALARM_
-              #_LOGGER.warn(self._attr_state)
-           # return
-        elif status == "03":
-           if self._attr_state != AlarmControlPanelState.ARMED_HOME:
-              _LOGGER.warn('status  particao  Armado Home')
-              #_LOGGER.warn(self._attr_state)
-           #return
-        elif status == "04":
-           if self._attr_state != AlarmControlPanelState.DISARMED:
-              _LOGGER.warn('status  particao  Disarmado')
-           #return
-        elif status =="81":
-           if self._attr_state != AlarmControlPanelState.TRIGGERED:
-              _LOGGER.warn('status  particao desarmado disparado')
-           #return
-        elif status =="82":
-           if self._attr_state != AlarmControlPanelState.TRIGGERED:
-              _LOGGER.warn('status  particao  Armado Away e disparado')
-           #return
-        elif status =="83":
-           if self._attr_state != AlarmControlPanelState.TRIGGERED:
-              _LOGGER.warn('status particao Armado Home  e disparado')
-           #return
-        elif status =="84":
-           if self._attr_state != AlarmControlPanelState.TRIGGERED:
-              _LOGGER.warn('status  particao desarmado e disparado')
-           #return
-        else:
-           _LOGGER.warn('status particao desarmado')
-        return           
+        new_state = state_map.get(status)
+        if new_state is None:
+           return
+        changed = self.partition_status.get(part) != new_state
+        if changed:
+           self.partition_status[part] = new_state
+        any_triggered = any(
+           s == AlarmControlPanelState.TRIGGERED
+           for s in self.partition_status.values()
+        )
+        if any_triggered != self.alarm_sounding:
+           self.alarm_sounding = any_triggered
+           changed = True
+        if changed:
+           dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
+        return
     def setZoneStatus(self,zone,status):
         if status == 0:
              return
@@ -414,9 +407,9 @@ class JFLWatcher(threading.Thread):
                               self._attr_state = AlarmControlPanelState.ARMED_HOME
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            if evento == '3401' or evento == '3407' or evento =='3403' or evento =='3404' or evento =='3408' or evento=='3409' :
-                              self.armed_away = False
+                              self.armed_away = True
                               self.armed_night = False
-                              self.armed_home = True
+                              self.armed_home = False
                               self._attr_state = AlarmControlPanelState.ARMED_AWAY
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            if evento == '1401' or evento =='1407' or evento =='1403' or evento=='1409':
@@ -477,11 +470,18 @@ class JFLWatcher(threading.Thread):
                               self.battery_low = True
                               dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)    
                            _LOGGER.debug("PGM  %s", data[13])
+                           self.pgm_status = data[13]
+                           dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
                            ### status das particoes
-                           for i in range(16):
+                           # NOTA: o offset correto para o array de particoes neste
+                           # pacote periodico e data[14] em diante - nao data[13],
+                           # que e o byte de status dos PGMs (ver PR de suporte a PGM).
+                           # O loop tambem ia ate 16 iteracoes, estourando no
+                           # espaco de outros campos do pacote; a central so reporta
+                           # ate 4 particoes por essa via.
+                           for i in range(4):
                               Part=i+1
-                              _LOGGER.debug("###############  PART %s Status %s", Part,f'{data[13+i]:0>2X}')
-                              self.setPartitionStatus(Part,f'{data[13+i]:0>2X}')
+                              self.setPartitionStatus(Part,f'{data[14+i]:0>2X}')
                            ### Status eletrificador
                            #_LOGGER.warn("Eletrificador %s", f'{data[30]:0>2X}')
                            if '00' in f'{data[30]:0>2X}':
