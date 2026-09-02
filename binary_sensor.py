@@ -17,6 +17,7 @@ from .const import (
     CONF_ZONE_TYPE,
     DEFAULT_ZONE_OPTIONS,
     OPTIONS_ZONES,
+    SIGNAL_PANEL_MESSAGE,
     SIGNAL_REL_MESSAGE,
     SIGNAL_RFX_MESSAGE,
     SIGNAL_ZONE_FAULT,
@@ -87,6 +88,10 @@ class JflBinarySensor(BinarySensorEntity):
         self._attr_unique_id = "JFLActive_Zone_"+str(self._zone_number)
         self._attr_extra_state_attributes = {
             CONF_ZONE_NUMBER: self._zone_number,
+            "tamper": False,
+            "low_battery": False,
+            "no_comm": False,
+            "short_circuit": False,
         }
 
     async def async_added_to_hass(self):
@@ -112,6 +117,25 @@ class JflBinarySensor(BinarySensorEntity):
                 self.hass, SIGNAL_REL_MESSAGE, self._rel_message_callback
             )
         )
+
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_PANEL_MESSAGE, self._panel_message_callback
+            )
+        )
+
+    def _panel_message_callback(self, message):
+        """Update diagnostic attributes (tamper, bateria, comunicacao) for this zone."""
+        problems = getattr(message, "zone_problems", {}).get(self._zone_number)
+        if not problems:
+            return
+        attrs = dict(self._attr_extra_state_attributes)
+        attrs["tamper"] = problems.get("tamper", False)
+        attrs["low_battery"] = problems.get("low_battery", False)
+        attrs["no_comm"] = problems.get("no_comm", False)
+        attrs["short_circuit"] = problems.get("short_circuit", False)
+        self._attr_extra_state_attributes = attrs
+        self.schedule_update_ha_state()
 
     def _fault_callback(self, zone):
         """Update the zone's state, if needed."""
