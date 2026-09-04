@@ -204,6 +204,8 @@ class JFLWatcher(threading.Thread):
         )
         if any_triggered != self.alarm_sounding:
            self.alarm_sounding = any_triggered
+           if any_triggered:
+              self.alarm_event_occurred = True
            changed = True
         if changed:
            dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
@@ -417,6 +419,7 @@ class JFLWatcher(threading.Thread):
                               self.armed_away =False
                               self.armed_night =False
                               self.alarm_sounding = False
+                              self.alarm_event_occurred = False
                               self.fire_alarm = False
                               self.eletrificador=False
                               self._attr_state = AlarmControlPanelState.DISARMED
