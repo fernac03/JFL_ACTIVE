@@ -218,14 +218,14 @@ class AlarmDecoderAlarmPanel(AlarmControlPanelEntity):
         #_LOGGER.warn("arme home quantas Particoes  %s",self.CONF_PARTITION)    
         if self.CONF_PARTITION:
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x01'
+           message = b'\x7b\6\x01\x53\x01'
            check = self.checksum(message)
            message += check.to_bytes(1,'big')
            self._client.put(bytes(message))
         else:
            _LOGGER.warn("enviando arme home")
            #message = b'\xb3\x36\x01\x01\x00\x00\x00'
-           message = b'\x7b\6\x01\x4e\x01'
+           message = b'\x7b\6\x01\x53\x01'
            check = self.checksum(message)
            #self._attr_state = AlarmControlPanelState.ARMED_HOME
            message += check.to_bytes(1,'big')
@@ -372,7 +372,7 @@ class JflPartitionAlarmPanel(AlarmControlPanelEntity):
         """Send arm home command for this partition."""
         if self.code_arm_required and not self._validate_code(code, AlarmControlPanelState.ARMED_HOME):
             return
-        self._send(0x4E)
+        self._send(0x53)
 
     def _validate_code(self, code, state):
         """Validate given code."""
