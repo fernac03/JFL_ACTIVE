@@ -171,6 +171,8 @@ class JFLWatcher(threading.Thread):
         self.zone_bypassed = False
         self.pgm_status = 0
         self.partition_status = {}
+        self.zone_problems = {}
+        self.zones_open = set()
     def bitExtracted(self, number, k, p):
         return ( ((1 << k) - 1)  &  (number >> (p-1) ) )
     def setPartitionStatus(self,part,status):
@@ -208,6 +210,21 @@ class JFLWatcher(threading.Thread):
         if changed:
            dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         return
+    def _update_ready_state(self):
+        """Recompute self.ready from currently open zones and zone problems.
+
+        'Ready' means the panel could be armed right now: no zone is
+        currently open/faulted, and no zone is reporting a problem
+        (tamper, low battery, short circuit or loss of communication).
+        """
+        has_problem = any(
+            any(problems.values()) for problems in self.zone_problems.values()
+        )
+        new_ready = (len(self.zones_open) == 0) and not has_problem
+        if new_ready != self.ready:
+            self.ready = new_ready
+            dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
+
     def setZoneStatus(self,zone,status):
         if status == 0:
              return
@@ -216,26 +233,34 @@ class JFLWatcher(threading.Thread):
         elif status == 2:
              dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
              self.text = "Zona " + str(zone) + " Zona Disparada"
+             self.zones_open.add(zone)
+             self._update_ready_state()
              dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
         elif status == 3:
              self.text = "Zona " + str(zone) + " Sensor sem Comunicacao"
              self.zone_problems.setdefault(zone, {})["no_comm"] = True
+             self._update_ready_state()
              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         elif status == 4:
              self.text = "Zona " + str(zone) + " Zona Em curto"
              self.zone_problems.setdefault(zone, {})["short_circuit"] = True
+             self._update_ready_state()
              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         elif status == 5:
              self.text = "Zona " + str(zone) + " Tamper Aberto"
              self.zone_problems.setdefault(zone, {})["tamper"] = True
+             self._update_ready_state()
              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         elif status == 6:
              self.text = "Zona " + str(zone) + " Bateria Baixa"
              self.zone_problems.setdefault(zone, {})["low_battery"] = True
+             self._update_ready_state()
              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         elif status == 7:
              dispatcher_send(self.hass, SIGNAL_ZONE_FAULT, zone)
              self.text = "Zona " + str(zone) + " Zona Aberta"
+             self.zones_open.add(zone)
+             self._update_ready_state()
              dispatcher_send(self.hass,SIGNAL_PANEL_MESSAGE, self)    
         elif status == 8:
              dispatcher_send(self.hass, SIGNAL_ZONE_RESTORE, zone)
@@ -245,6 +270,8 @@ class JFLWatcher(threading.Thread):
                  "tamper": False,
                  "low_battery": False,
              }
+             self.zones_open.discard(zone)
+             self._update_ready_state()
              dispatcher_send(self.hass, SIGNAL_PANEL_MESSAGE, self)
         return
 
